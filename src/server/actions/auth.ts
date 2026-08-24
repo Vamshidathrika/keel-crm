@@ -6,7 +6,7 @@ import { AuthError } from "next-auth";
 import { db } from "@/db";
 import { organizations, users } from "@/db/schema";
 import { auth, signIn, signOut } from "@/lib/auth";
-import { createDefaultPipeline } from "@/lib/seed-defaults";
+import { seedOrganizationDefaults } from "@/lib/seed-defaults";
 import { loginSchema, registerSchema } from "@/lib/validators/auth";
 
 function slugify(name: string) {
@@ -28,14 +28,15 @@ export async function registerOrganization(input: unknown) {
   const passwordHash = await bcrypt.hash(password, 10);
 
   const [org] = await db.insert(organizations).values({ name: orgName, slug: slugify(orgName) }).returning();
-  await db.insert(users).values({
+  const [newUser] = await db.insert(users).values({
     orgId: org.id,
     name,
     email,
     passwordHash,
     role: "admin",
-  });
-  await createDefaultPipeline(org.id);
+  }).returning();
+
+  await seedOrganizationDefaults(org.id, newUser.id);
 
   try {
     await signIn("credentials", { email, password, redirect: false });

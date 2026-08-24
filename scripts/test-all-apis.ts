@@ -40,6 +40,7 @@ import * as searchRoute from "../src/app/api/v1/search/route";
 import * as duplicatesRoute from "../src/app/api/v1/duplicates/route";
 import * as apiKeysRoute from "../src/app/api/v1/apikeys/route";
 import * as openapiRoute from "../src/app/api/v1/openapi.json/route";
+import * as exportRoute from "../src/app/api/v1/export/route";
 
 // Import AI routes
 import * as aiInsightsRoute from "../src/app/api/ai/business-insights/route";
@@ -392,6 +393,9 @@ async function main() {
   );
   await testEndpoint("GET /api/v1/openapi.json (OpenAPI 3.1 Specification)", () =>
     openapiRoute.GET()
+  );
+  await testEndpoint("GET /api/v1/export (Tenant Data Portability Export)", () =>
+    exportRoute.GET(createReq("http://localhost/api/v1/export", "GET", rawTestKey))
   );
 
   // --- Module 6: Generative AI & Automation Sweeps ---
