@@ -307,6 +307,22 @@ export async function executeApprovedAction(
       }
       break;
     }
+    case "move_stage": {
+      if (payload.dealId && payload.stageId) {
+        await db
+          .update(deals)
+          .set({ stageId: payload.stageId, ...(payload.probability ? { probability: payload.probability } : {}) })
+          .where(eq(deals.id, payload.dealId));
+      }
+      break;
+    }
+    case "trigger_webhook": {
+      if (payload.eventType) {
+        const { dispatchWebhookEvent } = await import("@/lib/webhooks/dispatcher");
+        await dispatchWebhookEvent(orgId, payload.eventType, payload.data || {});
+      }
+      break;
+    }
     default: {
       // General task fallback
       await toolCreateAutonomousTask(orgId, {

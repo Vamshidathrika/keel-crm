@@ -22,7 +22,7 @@ export interface AgentExecutionContext {
 export interface ProposedAction {
   title: string;
   description: string;
-  actionType: "create_task" | "update_deal_health" | "adjust_probability" | "draft_proposal" | "tag_entity" | "reassign_owner" | "custom";
+  actionType: "create_task" | "update_deal_health" | "adjust_probability" | "draft_proposal" | "tag_entity" | "reassign_owner" | "move_stage" | "trigger_webhook" | "custom";
   actionPayload: Record<string, any>;
   severity?: ActionSeverity;
 }

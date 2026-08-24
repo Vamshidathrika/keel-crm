@@ -854,7 +854,7 @@ export const agentActionQueue = sqliteTable(
     title: text("title").notNull(),
     description: text("description").notNull(),
     actionType: text("action_type", {
-      enum: ["create_task", "update_deal_health", "adjust_probability", "draft_proposal", "tag_entity", "reassign_owner", "custom"],
+      enum: ["create_task", "update_deal_health", "adjust_probability", "draft_proposal", "tag_entity", "reassign_owner", "move_stage", "trigger_webhook", "custom"],
     }).notNull(),
     actionPayload: text("action_payload", { mode: "json" }).$type<Record<string, any>>().notNull().default({}),
     status: text("status", { enum: ["pending", "approved", "rejected", "executed"] }).notNull().default("pending"),
