@@ -3,17 +3,24 @@ import { getContacts } from "@/app/actions/contacts";
 import { getCompanies } from "@/app/actions/companies";
 import ContactsClient from "./contacts-client";
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default async function ContactsPage() {
   const session = await auth();
-  const contactsData = await getContacts();
-  const companiesData = await getCompanies();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const contactsData = await getContacts().catch(() => []);
+  const companiesData = await getCompanies().catch(() => []);
 
   return (
     <ContactsClient
       initialContacts={contactsData}
       companies={companiesData}
-      currentUser={session?.user}
+      currentUser={session.user}
     />
   );
 }

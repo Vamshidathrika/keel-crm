@@ -2,15 +2,17 @@ import React from "react";
 import { getCompanies } from "@/app/actions/companies";
 import CompaniesClient from "./companies-client";
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default async function CompaniesPage() {
   const session = await auth();
-  const companiesData = await getCompanies();
+  if (!session?.user) {
+    redirect("/login");
+  }
 
-  return (
-    <CompaniesClient
-      initialCompanies={companiesData}
-      currentUser={session?.user}
-    />
-  );
+  const initialCompanies = await getCompanies().catch(() => []);
+
+  return <CompaniesClient initialCompanies={initialCompanies} currentUser={session.user} />;
 }

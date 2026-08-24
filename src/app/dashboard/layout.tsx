@@ -41,7 +41,7 @@ export default async function DashboardLayout({
     console.error("Dashboard auth check error:", err);
   }
 
-  if (!session?.user) {
+  if (!session?.user || !session.user.orgId) {
     redirect("/login");
   }
 

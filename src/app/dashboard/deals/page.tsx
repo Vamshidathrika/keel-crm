@@ -6,18 +6,25 @@ import { getCompanies } from "@/app/actions/companies";
 import { getOrgDetails } from "@/server/actions/branding";
 import DealsClient from "./deals-client";
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default async function DealsPage() {
   const session = await auth();
-  const pipelinesData = await getPipelines();
-  const orgDetails = await getOrgDetails();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const pipelinesData = await getPipelines().catch(() => []);
+  const orgDetails = await getOrgDetails().catch(() => null);
 
   // Find default pipeline or use first
   const defaultPipeline = pipelinesData.find((p) => p.isDefault) || pipelinesData[0];
-  const dealsData = defaultPipeline ? await getDeals(defaultPipeline.id) : [];
+  const dealsData = defaultPipeline ? await getDeals(defaultPipeline.id).catch(() => []) : [];
 
-  const contactsData = await getContacts();
-  const companiesData = await getCompanies();
+  const contactsData = await getContacts().catch(() => []);
+  const companiesData = await getCompanies().catch(() => []);
 
   return (
     <DealsClient
@@ -25,8 +32,8 @@ export default async function DealsPage() {
       pipelines={pipelinesData}
       contacts={contactsData}
       companies={companiesData}
-      currentUser={session?.user}
-      businessType={orgDetails?.businessType || "logistics"}
+      currentUser={session.user}
+      businessType={orgDetails?.businessType || "b2b_saas"}
     />
   );
 }

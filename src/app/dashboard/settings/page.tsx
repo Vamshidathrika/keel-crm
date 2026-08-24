@@ -11,6 +11,8 @@ import SettingsClient from "./settings-client";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function SettingsPage() {
   const session = await auth();
 
@@ -20,30 +22,38 @@ export default async function SettingsPage() {
 
   const role = session.user.role;
 
-  // Query settings based on role authorization
-  const pipelinesData = await getPipelines();
-  const automationsData = await getAutomations();
-
-  const teamData = (role === "admin" || role === "manager") ? await getTeamMembers() : [];
-  const apiKeysData = role === "admin" ? await getApiKeys() : [];
-  const webhooksData = role === "admin" ? await getWebhooks() : [];
-  const auditLogsData = (role === "admin" || role === "manager") ? await getAuditLogs() : [];
-
-  // White-label data (admin only)
-  const brandingData = role === "admin" ? await getBrandingConfig() : {};
-  const widgetsData = role === "admin" ? await getOrgWidgets() : [];
+  // Query settings based on role authorization with resilient fallbacks
+  const [
+    pipelinesData,
+    automationsData,
+    teamData,
+    apiKeysData,
+    webhooksData,
+    auditLogsData,
+    brandingData,
+    widgetsData,
+  ] = await Promise.all([
+    getPipelines().catch(() => []),
+    getAutomations().catch(() => []),
+    (role === "admin" || role === "manager") ? getTeamMembers().catch(() => []) : Promise.resolve([]),
+    role === "admin" ? getApiKeys().catch(() => []) : Promise.resolve([]),
+    role === "admin" ? getWebhooks().catch(() => []) : Promise.resolve([]),
+    (role === "admin" || role === "manager") ? getAuditLogs().catch(() => []) : Promise.resolve([]),
+    role === "admin" ? getBrandingConfig().catch(() => ({})) : Promise.resolve({}),
+    role === "admin" ? getOrgWidgets().catch(() => []) : Promise.resolve([]),
+  ]);
 
   return (
     <SettingsClient
-      pipelines={pipelinesData}
-      team={teamData}
-      apiKeys={apiKeysData}
-      webhooks={webhooksData}
-      auditLogs={auditLogsData}
-      automations={automationsData}
+      pipelines={pipelinesData || []}
+      team={teamData || []}
+      apiKeys={apiKeysData || []}
+      webhooks={webhooksData || []}
+      auditLogs={auditLogsData || []}
+      automations={automationsData || []}
       currentUser={session.user}
-      branding={brandingData}
-      orgWidgets={widgetsData}
+      branding={brandingData || {}}
+      orgWidgets={widgetsData || []}
     />
   );
 }
