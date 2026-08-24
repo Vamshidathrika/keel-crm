@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { registerSchema, type RegisterInput } from "@/lib/validators/auth";
-import { registerOrganization, loginWithCredentials } from "@/server/actions/auth";
+import { registerOrganization } from "@/server/actions/auth";
 import { completeOnboarding } from "@/server/actions/onboarding";
 import { BUSINESS_TYPES } from "@/lib/widgets/defaults";
+import { signIn } from "next-auth/react";
 
 const STEPS = ["Your Workspace", "Your Business", "Quick Setup"] as const;
 
@@ -59,13 +60,17 @@ export default function RegisterPage() {
     try {
       await completeOnboarding(createdOrgId, selectedBizType, answers);
 
-      // Authenticate directly to ensure session cookies are active
+      // Authenticate directly via next-auth client to mint session cookies
       const creds = registeredCreds.email ? registeredCreds : getValues();
       if (creds.email && creds.password) {
-        await loginWithCredentials({ email: creds.email, password: creds.password });
+        await signIn("credentials", {
+          email: creds.email.trim().toLowerCase(),
+          password: creds.password,
+          redirect: false,
+        });
       }
 
-      // Hard redirect to dashboard to ensure complete SSR hydration
+      // Hard redirect to dashboard
       window.location.href = "/dashboard";
     } catch (err: any) {
       setServerError(err?.message || "Setup failed. Please try logging in with your new credentials.");

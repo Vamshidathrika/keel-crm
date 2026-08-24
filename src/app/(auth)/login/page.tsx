@@ -1,19 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { Loader2, ShieldCheck, UserCheck, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginSchema, type LoginInput } from "@/lib/validators/auth";
-import { loginWithCredentials } from "@/server/actions/auth";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [demoLoadingRole, setDemoLoadingRole] = useState<string | null>(null);
 
@@ -27,13 +25,18 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginInput) => {
     setServerError(null);
     try {
-      const res = await loginWithCredentials(data);
-      if (res?.error) {
-        setServerError(res.error);
+      const res = await signIn("credentials", {
+        email: data.email.trim().toLowerCase(),
+        password: data.password,
+        redirect: false,
+      });
+
+      if (res?.error || !res?.ok) {
+        setServerError("Invalid email or password. Please check your credentials.");
         return;
       }
-      router.push("/dashboard");
-      router.refresh();
+
+      window.location.href = "/dashboard";
     } catch (err: any) {
       setServerError(err?.message || "An unexpected error occurred during login.");
     }
@@ -46,14 +49,19 @@ export default function LoginPage() {
     setValue("password", "password123", { shouldValidate: true });
 
     try {
-      const res = await loginWithCredentials({ email, password: "password123" });
-      if (res?.error) {
-        setServerError(res.error);
+      const res = await signIn("credentials", {
+        email: email.trim().toLowerCase(),
+        password: "password123",
+        redirect: false,
+      });
+
+      if (res?.error || !res?.ok) {
+        setServerError("Failed to sign in with demo credentials. Please verify your connection.");
         setDemoLoadingRole(null);
         return;
       }
-      router.push("/dashboard");
-      router.refresh();
+
+      window.location.href = "/dashboard";
     } catch (err: any) {
       setServerError(err?.message || "Failed to log in with dummy credentials.");
       setDemoLoadingRole(null);
