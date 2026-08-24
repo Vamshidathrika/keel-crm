@@ -19,7 +19,7 @@ export default function ShipmentsClient({ user, initialShipments = [] }: Shipmen
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const [newForm, setNewForm] = useState({
+  const [newForm, setNewForm] = useState(() => ({
     dealName: "",
     carrier: "Maersk Line",
     origin: "",
@@ -28,7 +28,7 @@ export default function ShipmentsClient({ user, initialShipments = [] }: Shipmen
     status: "Booking Confirmed",
     mode: "Ocean Freight",
     cost: "₹10,00,000",
-  });
+  }));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

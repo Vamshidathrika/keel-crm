@@ -19,14 +19,14 @@ export default function AppointmentsClient({ user, initialAppointments = [] }: A
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const [newForm, setNewForm] = useState({
+  const [newForm, setNewForm] = useState(() => ({
     patientName: "",
     provider: "Dr. A. Sharma (General Medicine)",
     dateTime: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 16),
     status: "Scheduled",
     hipaaConsent: true,
     referralSource: "Direct Intake",
-  });
+  }));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
