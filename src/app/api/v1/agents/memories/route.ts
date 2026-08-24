@@ -43,6 +43,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Fields 'entityType', 'entityId', 'key', and 'value' are required." }, { status: 400 });
     }
 
+    // Security Hardening: Validate memory key namespace (alphanumeric, max 64 chars)
+    const KEY_REGEX = /^[a-zA-Z0-9_.-]{2,64}$/;
+    if (!KEY_REGEX.test(key.trim())) {
+      return NextResponse.json(
+        { error: "Invalid memory key format. Must be 2-64 alphanumeric characters with underscores/hyphens/dots." },
+        { status: 400 }
+      );
+    }
+
+    const cleanKey = key.trim();
     const orgId = authResult.orgId!;
 
     const existingMemory = await db.query.agentMemories.findFirst({
@@ -50,7 +60,7 @@ export async function POST(req: Request) {
         eq(agentMemories.orgId, orgId),
         eq(agentMemories.entityType, entityType),
         eq(agentMemories.entityId, entityId),
-        eq(agentMemories.key, key)
+        eq(agentMemories.key, cleanKey)
       ),
     });
 
@@ -74,7 +84,7 @@ export async function POST(req: Request) {
           orgId,
           entityType,
           entityId,
-          key,
+          key: cleanKey,
           value,
           confidence,
           sourceAgent,

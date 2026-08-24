@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createDeal, updateDeal, deleteDeal, getDeals } from "@/app/actions/deals";
+import { createPipeline } from "@/app/actions/pipelines";
 import { createActivity } from "@/app/actions/activities";
 import ActivityTimeline from "@/components/activity-timeline";
 import { toast } from "sonner";
@@ -119,6 +120,7 @@ export default function DealsClient({
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("id");
 
+  const [pipelinesList, setPipelinesList] = useState<Pipeline[]>(pipelines);
   const [activePipeline, setActivePipeline] = useState<Pipeline | null>(
     pipelines.find((p) => p.isDefault) || pipelines[0] || null
   );
@@ -127,6 +129,12 @@ export default function DealsClient({
   const [view, setView] = useState<"kanban" | "table" | "calendar">("kanban");
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
+
+  // New Pipeline Modal states
+  const [showNewPipelineDialog, setShowNewPipelineDialog] = useState(false);
+  const [newPipelineName, setNewPipelineName] = useState("");
+  const [newPipelineDefault, setNewPipelineDefault] = useState(false);
+  const [pipelineCreating, setPipelineCreating] = useState(false);
 
   // Detail Sheet timeline refresh
   const [timelineRefresh, setTimelineRefresh] = useState(0);
@@ -221,7 +229,7 @@ export default function DealsClient({
 
   // Re-fetch deals when pipeline changes
   const handlePipelineChange = async (pipelineId: string) => {
-    const pipe = pipelines.find((p) => p.id === pipelineId) || null;
+    const pipe = pipelinesList.find((p) => p.id === pipelineId) || null;
     setActivePipeline(pipe);
     if (pipe) {
       try {
@@ -230,6 +238,36 @@ export default function DealsClient({
       } catch (err: any) {
         toast.error("Failed to load deals for pipeline");
       }
+    }
+  };
+
+  const handleAddPipeline = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPipelineName.trim()) {
+      toast.error("Pipeline name is required");
+      return;
+    }
+
+    setPipelineCreating(true);
+    try {
+      const updatedPipes = await createPipeline(newPipelineName.trim(), newPipelineDefault);
+      setPipelinesList(updatedPipes as Pipeline[]);
+      
+      const newPipe = updatedPipes.find((p) => p.name === newPipelineName.trim()) || updatedPipes[updatedPipes.length - 1];
+      if (newPipe) {
+        setActivePipeline(newPipe as Pipeline);
+        const fetchedDeals = await getDeals(newPipe.id);
+        setDeals(fetchedDeals as Deal[]);
+      }
+
+      setShowNewPipelineDialog(false);
+      setNewPipelineName("");
+      setNewPipelineDefault(false);
+      toast.success(`Pipeline "${newPipelineName.trim()}" created with default stages!`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create pipeline");
+    } finally {
+      setPipelineCreating(false);
     }
   };
 
@@ -452,24 +490,38 @@ export default function DealsClient({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {pipelines.length > 1 && activePipeline && (
-            <Select
-              value={activePipeline.id}
-              onValueChange={(val) => handlePipelineChange(val as string)}
-            >
-              <SelectTrigger className="w-48 bg-card border-border">
-                <SelectValue placeholder="Pipeline" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border">
-                {pipelines.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          {activePipeline && (
+            <div className="flex items-center gap-1.5 bg-card border border-border rounded-md px-2 py-1">
+              <span className="text-[11px] font-medium text-muted-foreground hidden sm:inline">Pipeline:</span>
+              <Select
+                value={activePipeline.id}
+                onValueChange={(val) => handlePipelineChange(val as string)}
+              >
+                <SelectTrigger className="w-44 h-8 bg-transparent border-0 font-medium text-xs shadow-none focus:ring-0">
+                  <SelectValue placeholder="Pipeline" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  {pipelinesList.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="font-medium">{p.name}</span>
+                      {p.isDefault && <span className="text-[10px] text-muted-foreground ml-1.5">(Default)</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowNewPipelineDialog(true)}
+            className="h-9 text-xs flex items-center gap-1 bg-card hover:bg-muted"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Add Pipeline</span>
+          </Button>
 
           <div className="flex rounded-md overflow-hidden border border-border bg-card p-0.5">
             <button

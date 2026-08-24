@@ -1,11 +1,13 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { HumanMessage, SystemMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { db } from "@/db";
-import { agentRuns, agentConfigs, agentActionQueue } from "@/db/schema";
+import { agentRuns, agentConfigs, agentActionQueue, auditLogs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { allAgentHands, agentHandsMap } from "../hands";
 import { AGENT_PERSONAS } from "./prompts";
 import { AgentRunOutput, ProposedAction } from "../types";
+import { sanitizeAndInspectPrompt } from "./safety-guard";
+import { evaluateActionGate } from "./action-gate";
 
 export interface RunAgentParams {
   orgId: string;
@@ -17,25 +19,71 @@ export interface RunAgentParams {
 }
 
 /**
- * Enterprise ReAct Agent Harness:
- * Executes a tool-calling reasoning loop with bounded iterations,
- * observation captures, safety gates, and state logging.
+ * Hardened Enterprise ReAct Agent Harness:
+ * Incorporates prompt injection defenses, tenant boundary enforcement,
+ * circuit breaker loop protection, and human-in-the-loop action gating.
  */
 export async function executeAgentHarness(params: RunAgentParams): Promise<AgentRunOutput> {
   const startTime = Date.now();
   const { orgId, agentType, userPrompt, targetEntityType = "org", targetEntityId = orgId } = params;
 
-  // 1. Fetch organization configuration
+  // 1. Prompt Injection & Adversarial Defense Screening
+  const safetyCheck = sanitizeAndInspectPrompt(userPrompt);
+  const thoughtProcess: string[] = [];
+  const toolsInvoked: Array<{ tool: string; params: any; result: any }> = [];
+  const actionsProposed: ProposedAction[] = [];
+
+  thoughtProcess.push(`[Harness:SafetyGuard] Prompt screened: Risk level = ${safetyCheck.riskLevel.toUpperCase()}`);
+
+  if (!safetyCheck.isSafe) {
+    const refusalSummary = `Security Refusal: Prompt rejected due to adversarial injection threat (${safetyCheck.threatDetected}).`;
+    thoughtProcess.push(`[Harness:SecurityAlert] ${refusalSummary}`);
+
+    // Log security event in audit logs
+    await db.insert(auditLogs).values({
+      orgId,
+      action: "agent_prompt_injection_blocked",
+      entityType: "agent",
+      entityId: agentType,
+      diff: { prompt: userPrompt.slice(0, 200), threat: safetyCheck.threatDetected },
+    }).catch(() => {});
+
+    // Record failed run
+    const [blockedRun] = await db
+      .insert(agentRuns)
+      .values({
+        orgId,
+        agentType,
+        targetEntityType,
+        targetEntityId,
+        status: "failed",
+        confidenceScore: 0,
+        thoughtProcess,
+        summary: refusalSummary,
+        toolsInvoked: [],
+        executionDurationMs: Date.now() - startTime,
+      })
+      .returning();
+
+    return {
+      runId: blockedRun.id,
+      status: "failed",
+      confidenceScore: 0,
+      thoughtProcess,
+      summary: refusalSummary,
+      toolsInvoked: [],
+      actionsProposed: [],
+      executionDurationMs: Date.now() - startTime,
+    };
+  }
+
+  // 2. Fetch organization agent configuration
   const config = await db.query.agentConfigs.findFirst({
     where: and(eq(agentConfigs.orgId, orgId), eq(agentConfigs.agentType, agentType as any)),
   });
   const executionMode = params.executionMode || config?.executionMode || "supervised";
 
-  const thoughtProcess: string[] = [];
-  const toolsInvoked: Array<{ tool: string; params: any; result: any }> = [];
-  const actionsProposed: ProposedAction[] = [];
-
-  thoughtProcess.push(`[Harness:Init] Launching ${agentType} agent in ${executionMode.toUpperCase()} mode.`);
+  thoughtProcess.push(`[Harness:Init] Launching ${agentType} in ${executionMode.toUpperCase()} mode (Tenant: ${orgId}).`);
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const isRealApiKey = apiKey && apiKey !== "YOUR_GEMINI_API_KEY";
@@ -55,40 +103,52 @@ export async function executeAgentHarness(params: RunAgentParams): Promise<Agent
       const systemPrompt = AGENT_PERSONAS[agentType] || AGENT_PERSONAS.copilot;
 
       const messages: any[] = [
-        new SystemMessage(`${systemPrompt}\nOrganization Context: orgId = "${orgId}"`),
-        new HumanMessage(userPrompt),
+        new SystemMessage(
+          `${systemPrompt}\nOrganization Context: orgId = "${orgId}".\nSTRICT SECURITY RULE: You must ONLY access and mutate data belonging to orgId "${orgId}".`
+        ),
+        new HumanMessage(safetyCheck.sanitizedPrompt),
       ];
 
       const MAX_STEPS = 5;
       let step = 0;
+      let lastToolCallSignature = "";
 
       while (step < MAX_STEPS) {
         step++;
-        thoughtProcess.push(`[Harness:Step ${step}] Consulting LLM for next action...`);
+        thoughtProcess.push(`[Harness:Step ${step}] Consulting LLM reasoning engine...`);
 
         const aiResponse = await modelWithTools.invoke(messages);
         messages.push(aiResponse);
 
         if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
           for (const call of aiResponse.tool_calls) {
+            // Circuit Breaker: Detect duplicate tool invocation loops
+            const currentSignature = `${call.name}::${JSON.stringify(call.args)}`;
+            if (currentSignature === lastToolCallSignature) {
+              thoughtProcess.push(`[Harness:CircuitBreaker] Duplicate tool call detected. Breaking execution loop to prevent runaway cycles.`);
+              step = MAX_STEPS; // Force break
+              break;
+            }
+            lastToolCallSignature = currentSignature;
+
             const toolInstance: any = agentHandsMap.get(call.name as any);
-            thoughtProcess.push(`[Harness:ToolCall] Invoking tool "${call.name}" with args: ${JSON.stringify(call.args)}`);
+            thoughtProcess.push(`[Harness:ToolCall] Invoking tool "${call.name}" with tenant sandboxing.`);
 
             let toolResult: any;
             try {
               if (toolInstance) {
-                // Ensure orgId is injected
+                // Hard tenant boundary injection: force session orgId
                 const argsWithOrg = { ...call.args, orgId };
                 toolResult = await toolInstance.invoke(argsWithOrg);
               } else {
-                toolResult = { status: "error", error: `Tool ${call.name} not registered` };
+                toolResult = { status: "error", error: `Tool "${call.name}" is not registered in security catalog.` };
               }
             } catch (toolErr: any) {
               toolResult = { status: "error", error: toolErr.message || "Tool execution failed" };
             }
 
             toolsInvoked.push({ tool: call.name, params: call.args, result: toolResult });
-            thoughtProcess.push(`[Harness:Observation] Tool returned: ${JSON.stringify(toolResult).slice(0, 150)}...`);
+            thoughtProcess.push(`[Harness:Observation] Tool returned: ${JSON.stringify(toolResult).slice(0, 120)}...`);
 
             messages.push(
               new ToolMessage({
@@ -99,23 +159,23 @@ export async function executeAgentHarness(params: RunAgentParams): Promise<Agent
             );
           }
         } else {
-          // No more tool calls; LLM provided final synthesis
-          finalSummary = aiResponse.content as string;
-          thoughtProcess.push(`[Harness:Complete] LLM completed reasoning chain.`);
+          // LLM completed reasoning chain
+          finalSummary = typeof aiResponse.content === "string" ? aiResponse.content : JSON.stringify(aiResponse.content);
+          thoughtProcess.push(`[Harness:Complete] LLM finalized reasoning synthesis.`);
           break;
         }
       }
     } catch (llmErr: any) {
       console.error("LangChain Gemini execution error:", llmErr);
-      thoughtProcess.push(`[Harness:Warning] LangChain execution encountered an issue. Transitioning to heuristic fallback.`);
-      finalSummary = runDeterministicFallback(agentType, userPrompt, toolsInvoked, thoughtProcess);
+      thoughtProcess.push(`[Harness:Warning] Cognitive engine issue. Transitioning to deterministic fallback.`);
+      finalSummary = runDeterministicFallback(agentType, safetyCheck.sanitizedPrompt, toolsInvoked, thoughtProcess);
     }
   } else {
     thoughtProcess.push(`[Harness:Simulation] GEMINI_API_KEY not configured. Running deterministic cognitive loop.`);
-    finalSummary = runDeterministicFallback(agentType, userPrompt, toolsInvoked, thoughtProcess);
+    finalSummary = runDeterministicFallback(agentType, safetyCheck.sanitizedPrompt, toolsInvoked, thoughtProcess);
   }
 
-  // 2. Persist execution log to agent_runs
+  // 3. Persist execution log to agent_runs
   const [runRecord] = await db
     .insert(agentRuns)
     .values({
@@ -126,7 +186,7 @@ export async function executeAgentHarness(params: RunAgentParams): Promise<Agent
       status: actionsProposed.length > 0 ? "requires_approval" : "completed",
       confidenceScore,
       thoughtProcess,
-      summary: finalSummary || "Agent execution completed successfully.",
+      summary: finalSummary || "Agent execution completed successfully with all security guardrails.",
       toolsInvoked,
       executionDurationMs: Date.now() - startTime,
     })
