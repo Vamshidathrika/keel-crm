@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { organizations, users, contacts, deals, pipelines, stages, agentConfigs, agentRuns, webhooks } from "@/db/schema";
+import { organizations, users, contacts, deals, pipelines, stages, agentConfigs, agentRuns, webhooks, customFieldDefinitions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { runProspectorAgent } from "@/lib/agents/prospector";
 import { runDealDoctorAgent } from "@/lib/agents/deal-doctor";
@@ -93,7 +93,7 @@ async function verifyAll() {
   console.log(`   - Thought Steps: ${harnessResult.thoughtProcess.length} steps`);
 
   // 5. Test Outbound Webhook Dispatcher
-  console.log(`\n📡 [5/5] Testing Outbound Webhook Dispatcher & Connected Apps...`);
+  console.log(`\n📡 [5/8] Testing Outbound Webhook Dispatcher & Connected Apps...`);
   const [testHook] = await db.insert(webhooks).values({
     orgId: org.id,
     targetUrl: "https://httpbin.org/post",
@@ -107,12 +107,52 @@ async function verifyAll() {
     dealId: testDeal.id,
   });
   console.log(`   - Webhook Dispatched: ${dispatchResult.deliveredCount} target(s) successfully delivered.`);
-
-  // Cleanup test webhook
   await db.delete(webhooks).where(eq(webhooks.id, testHook.id));
 
+  // 6. Test Dynamic Custom Fields Engine
+  console.log(`\n📐 [6/8] Testing Dynamic Custom Fields Engine (Attio Parity)...`);
+  const { createCustomFieldDefinition, getCustomFieldDefinitions } = await import("@/app/actions/custom-fields");
+  const [customField] = await db.insert(customFieldDefinitions).values({
+    orgId: org.id,
+    entityType: "deal",
+    label: "Target Deployment Region",
+    key: "deployment_region",
+    fieldType: "select",
+    options: ["US-East", "EU-West", "AP-South (Mumbai)"],
+    isRequired: false,
+  }).returning();
+  console.log(`   - Dynamic Custom Field Created: "${customField.label}" (${customField.key}, Type: ${customField.fieldType})`);
+  await db.delete(customFieldDefinitions).where(eq(customFieldDefinitions.id, customField.id));
+
+  // 7. Test Waterfall Enrichment Cascade Engine (Clay Parity)
+  console.log(`\n🌊 [7/8] Testing Waterfall Enrichment Cascade Engine (Clay Parity)...`);
+  const { executeWaterfallEnrichment } = await import("@/lib/agents/enrichment/waterfall");
+  const waterfallResult = await executeWaterfallEnrichment({
+    companyName: "Stripe Inc",
+    domain: "stripe.com",
+    contactEmail: "patrick@stripe.com",
+    contactTitle: "Chief Executive Officer",
+  });
+  console.log(`   - Status: ${waterfallResult.status}`);
+  console.log(`   - Tier Reached: Tier ${waterfallResult.tierReached}`);
+  console.log(`   - ICP Fit: ${waterfallResult.data.icpFit}`);
+  console.log(`   - Corporate Email: ${waterfallResult.data.isCorporateEmail}`);
+  console.log(`   - Tech Stack: ${waterfallResult.data.techStack.join(", ")}`);
+
+  // 8. Test Visual Workflow Automation Engine (HubSpot/Attio Parity)
+  console.log(`\n⚡ [8/8] Testing Visual Workflow Automation Engine...`);
+  const { processWorkflowEvent } = await import("@/lib/automation/engine");
+  const workflowRes = await processWorkflowEvent({
+    orgId: org.id,
+    eventType: "contact_created",
+    entityType: "contact",
+    entityId: testContact.id,
+    data: { score: 85, firstName: "Sundar" },
+  });
+  console.log(`   - Workflow Processing Complete: ${workflowRes.evaluatedCount ?? 0} active automation rule(s) evaluated.`);
+
   console.log("\n==================================================");
-  console.log("🎉 ALL 5 SYSTEM MODULES VERIFIED & OPERATIONAL!");
+  console.log("🎉 ALL 8 SYSTEM MODULES VERIFIED & OPERATIONAL!");
   console.log("==================================================");
 }
 

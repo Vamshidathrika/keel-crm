@@ -1017,6 +1017,10 @@ export const propertiesRelations = relations(properties, ({ one }) => ({
   org: one(organizations, { fields: [properties.orgId], references: [organizations.id] }),
 }));
 
+export const customFieldDefinitionsRelations = relations(customFieldDefinitions, ({ one }) => ({
+  org: one(organizations, { fields: [customFieldDefinitions.orgId], references: [organizations.id] }),
+}));
+
 export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Company = typeof companies.$inferSelect;
@@ -1052,5 +1056,6 @@ export type KycRecord = typeof kycRecords.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type Property = typeof properties.$inferSelect;
+export type CustomFieldDefinition = typeof customFieldDefinitions.$inferSelect;
 
 
