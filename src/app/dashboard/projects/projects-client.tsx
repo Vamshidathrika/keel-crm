@@ -1,236 +1,219 @@
 "use client";
 
 import React, { useState } from "react";
-import { Briefcase, Plus, Search, Calendar, CheckSquare, Clock, User, Award } from "lucide-react";
+import { FolderKanban, Plus, Search, CheckCircle2, Clock, AlertCircle, Calendar, Users, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createProject, updateProjectStatus } from "@/app/actions/projects";
 
 interface ProjectsClientProps {
   user: any;
+  initialProjects: any[];
 }
 
-const INITIAL_PROJECTS = [
-  {
-    id: "PRJ-601",
-    name: "Enterprise ERP Implementation Strategy",
-    client: "Global Logistics Group",
-    milestone: "Phase 1 Assessment Delivery",
-    dueDate: "2026-08-15",
-    billedHrs: "42 hrs",
-    budget: "₹25,00,000",
-    status: "Active",
-  },
-  {
-    id: "PRJ-602",
-    name: "Talent Compensation Structuring",
-    client: "Novartis Bio India",
-    milestone: "Final Benchmarking Presentation",
-    dueDate: "2026-07-28",
-    billedHrs: "18 hrs",
-    budget: "₹8,50,000",
-    status: "Active",
-  },
-  {
-    id: "PRJ-603",
-    name: "Market Penetration Roadmap",
-    client: "Supermart E-retail",
-    milestone: "Initial Proposal Sign-off",
-    dueDate: "2026-09-02",
-    billedHrs: "0 hrs",
-    budget: "₹15,00,000",
-    status: "Planning",
-  },
-];
-
-export default function ProjectsClient({ user }: ProjectsClientProps) {
-  const [projects, setProjects] = useState(INITIAL_PROJECTS);
+export default function ProjectsClient({ user, initialProjects }: ProjectsClientProps) {
+  const [projects, setProjects] = useState(initialProjects || []);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [newForm, setNewForm] = useState({
-    name: "",
-    client: "",
-    milestone: "",
-    dueDate: "",
-    billedHrs: "0 hrs",
+    title: "",
+    clientName: "",
     budget: "",
-    status: "Planning",
+    deadline: "",
+    status: "active" as "active" | "completed" | "on_hold",
   });
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.name || !newForm.client || !newForm.budget) return;
-    const newPrj = {
-      id: `PRJ-${Math.floor(600 + Math.random() * 400)}`,
-      ...newForm,
-    };
-    setProjects([newPrj, ...projects]);
-    setShowAdd(false);
-    setNewForm({
-      name: "",
-      client: "",
-      milestone: "",
-      dueDate: "",
-      billedHrs: "0 hrs",
-      budget: "",
-      status: "Planning",
-    });
+    if (!newForm.title || !newForm.clientName) return;
+
+    setLoading(true);
+    try {
+      const created = await createProject({
+        title: newForm.title,
+        clientName: newForm.clientName,
+        budget: newForm.budget ? Number(newForm.budget) : undefined,
+        status: newForm.status,
+      });
+
+      setProjects([created, ...projects]);
+      setShowAdd(false);
+      setNewForm({ title: "", clientName: "", budget: "", deadline: "", status: "active" });
+    } catch (err) {
+      console.error("Failed to create project:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (id: string, status: "active" | "completed" | "on_hold") => {
+    try {
+      await updateProjectStatus(id, status);
+      setProjects(projects.map((p) => (p.id === id ? { ...p, status } : p)));
+    } catch (err) {
+      console.error("Failed to update status:", err);
+    }
   };
 
   const filtered = projects.filter(
     (p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchTerm.toLowerCase())
+      p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.client?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.id?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-            <Briefcase className="w-6 h-6 text-primary" /> Consulting Projects
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <FolderKanban className="w-6 h-6 text-primary" />
+            Project & Deliverable Hub
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Consulting Vertical — Track consulting client milestones, deliverables, project budgets, and logged time logs.
+          <p className="text-sm text-muted-foreground">
+            Track customer engagements, project milestones, budgets, and post-sale deliverable deadlines.
           </p>
         </div>
-        <Button onClick={() => setShowAdd(!showAdd)}>
-          <Plus className="w-4 h-4 mr-1" /> Log Project
+        <Button onClick={() => setShowAdd(!showAdd)} className="gap-2">
+          <Plus className="w-4 h-4" />
+          New Project
         </Button>
       </div>
 
+      {/* Add Project Form */}
       {showAdd && (
-        <Card className="border border-border bg-card">
+        <Card className="border-primary/20 bg-card">
           <CardHeader>
-            <CardTitle className="text-sm font-bold">New Consulting Project Account</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              Define milestones, target due dates, and fee budgets.
+            <CardTitle className="text-base font-semibold">Initiate New Project</CardTitle>
+            <CardDescription className="text-xs">
+              Record a new customer delivery contract, assigned budget, and target deadline.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAdd} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Project Name</label>
+                  <label className="text-xs font-medium text-foreground">Project Name</label>
                   <Input
-                    placeholder="e.g. Org Restructuring"
-                    value={newForm.name}
-                    onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
                     required
+                    placeholder="e.g. Enterprise Cloud Implementation"
+                    value={newForm.title}
+                    onChange={(e) => setNewForm({ ...newForm, title: e.target.value })}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Client Name</label>
+                  <label className="text-xs font-medium text-foreground">Client / Account</label>
                   <Input
-                    placeholder="Corporate Client name"
-                    value={newForm.client}
-                    onChange={(e) => setNewForm({ ...newForm, client: e.target.value })}
                     required
+                    placeholder="e.g. Acme Corp"
+                    value={newForm.clientName}
+                    onChange={(e) => setNewForm({ ...newForm, clientName: e.target.value })}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Current Milestone / Deliverable</label>
+                  <label className="text-xs font-medium text-foreground">Budget (₹)</label>
                   <Input
-                    placeholder="e.g. Phase 1 Report Delivery"
-                    value={newForm.milestone}
-                    onChange={(e) => setNewForm({ ...newForm, milestone: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Project Fee Budget</label>
-                  <Input
-                    placeholder="e.g. ₹15,00,000"
+                    type="number"
+                    placeholder="1500000"
                     value={newForm.budget}
                     onChange={(e) => setNewForm({ ...newForm, budget: e.target.value })}
-                    required
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Target Delivery Date</label>
+                  <label className="text-xs font-medium text-foreground">Target Deadline</label>
                   <Input
                     type="date"
-                    value={newForm.dueDate}
-                    onChange={(e) => setNewForm({ ...newForm, dueDate: e.target.value })}
+                    value={newForm.deadline}
+                    onChange={(e) => setNewForm({ ...newForm, deadline: e.target.value })}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Project State</label>
-                  <select
-                    value={newForm.status}
-                    onChange={(e) => setNewForm({ ...newForm, status: e.target.value })}
-                    className="w-full h-9 rounded-md border border-input bg-card px-3 text-xs"
-                  >
-                    <option>Planning</option>
-                    <option>Active</option>
-                    <option>On Hold</option>
-                    <option>Completed</option>
-                  </select>
-                </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Publish Project</Button>
+                <Button type="submit" disabled={loading} className="gap-2">
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Create Project
+                </Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search projects..."
-            className="pl-8 text-xs"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4">
-        {filtered.map((p) => (
-          <Card key={p.id} className="border border-border bg-card">
-            <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold font-mono px-2 py-0.5 rounded bg-primary/10 text-primary">
-                    {p.id}
+      {/* Projects List */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {filtered.length === 0 ? (
+          <div className="col-span-3 text-center py-12 text-muted-foreground text-sm border rounded-lg">
+            No projects found. Click "New Project" to start tracking client deliverables.
+          </div>
+        ) : (
+          filtered.map((p) => (
+            <Card key={p.id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                      p.status === "completed"
+                        ? "bg-emerald-500/10 text-emerald-500"
+                        : p.status === "on_hold"
+                        ? "bg-amber-500/10 text-amber-500"
+                        : "bg-blue-500/10 text-blue-500"
+                    }`}
+                  >
+                    {p.status?.toUpperCase() || "ACTIVE"}
                   </span>
-                  <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                    <Award className="w-3.5 h-3.5" /> Milestone: {p.milestone || "None defined"}
+                  <span className="text-[10px] text-muted-foreground font-mono">{p.id}</span>
+                </div>
+                <CardTitle className="text-sm font-semibold pt-1">{p.name}</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Client: {p.client?.name || "Direct Client"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs">
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Budget</span>
+                  <span className="font-semibold text-foreground">
+                    ₹{(p.budget || 0).toLocaleString()}
                   </span>
                 </div>
-                <h3 className="text-sm font-bold text-foreground mt-1">{p.name}</h3>
-                <p className="text-xs text-muted-foreground">{p.client}</p>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                  <span>Billed Time: <span className="font-semibold text-foreground">{p.billedHrs}</span></span>
-                  <span>•</span>
-                  <span>Budget: <span className="font-semibold text-foreground">{p.budget}</span></span>
+                {p.deadline && (
+                  <div className="flex justify-between items-center text-muted-foreground">
+                    <span>Deadline</span>
+                    <span className="text-foreground">{p.deadline}</span>
+                  </div>
+                )}
+                <div className="flex justify-end gap-1 pt-2 border-t">
+                  {p.status !== "completed" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      onClick={() => handleStatusChange(p.id, "completed")}
+                    >
+                      Mark Completed
+                    </Button>
+                  )}
+                  {p.status === "completed" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      onClick={() => handleStatusChange(p.id, "active")}
+                    >
+                      Re-Open
+                    </Button>
+                  )}
                 </div>
-              </div>
-
-              <div className="flex sm:flex-col items-end gap-4 sm:gap-2 justify-between">
-                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                  p.status === "Active" ? "bg-success/15 text-success" :
-                  p.status === "Planning" ? "bg-primary/15 text-primary" :
-                  "bg-muted text-muted-foreground"
-                }`}>
-                  {p.status}
-                </span>
-                <div className="text-right">
-                  <p className="text-[10px] text-muted-foreground">Due Date</p>
-                  <p className="text-xs font-semibold flex items-center gap-1 justify-end mt-0.5">
-                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" /> {p.dueDate || "N/A"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

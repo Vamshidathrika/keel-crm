@@ -1,59 +1,63 @@
 "use client";
 
 import React, { useState } from "react";
-import { MessageCircle, Search, Send, User, Check, CheckCheck, FileText, SendHorizontal, Play, Sparkles, Bell, Calendar, DollarSign, Settings2, ShieldCheck, Zap } from "lucide-react";
+import { MessageCircle, Search, Send, User, Check, CheckCheck, FileText, SendHorizontal, Play, Sparkles, Bell, Calendar, DollarSign, Settings2, ShieldCheck, Zap, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { sendMessage } from "@/app/actions/messages";
 
 interface WhatsappClientProps {
   user: any;
   contacts: any[];
   deals: any[];
+  initialMessages?: any[];
 }
 
-const INITIAL_THREADS = [
-  {
-    id: "th-1",
-    name: "Vamsi Krishna",
-    phone: "+91 98480 22338",
-    unread: 0,
-    messages: [
-      { sender: "client", text: "Hi, has the KYC document audit completed?", time: "10:30 AM" },
-      { sender: "system", text: "🤖 Automated Update: Hello Vamsi, your KYC validation for 'PAN Card + Aadhaar' has been APPROVED by compliance. Welcome aboard!", time: "10:32 AM" },
-      { sender: "agent", text: "Yes Vamsi, just verified it on our dashboard. You are good to go!", time: "10:35 AM" },
-    ],
-  },
-  {
-    id: "th-2",
-    name: "Precision Auto Components",
-    phone: "+91 94405 99011",
-    unread: 1,
-    messages: [
-      { sender: "agent", text: "Here is the compiled CAD mold quote for your review.", time: "Yesterday" },
-      { sender: "system", text: "🤖 Automated Quote Shared: CPQ Quote QTE-501 (Alloy Wheel molds x50) total amount ₹60,00,000 has been shared. Lead time: 4 weeks.", time: "Yesterday" },
-      { sender: "client", text: "Thanks, looks good. We are passing it to our procurement team.", time: "Yesterday" },
-    ],
-  },
-  {
-    id: "th-3",
-    name: "Harish Rao",
-    phone: "+91 99080 11223",
-    unread: 0,
-    messages: [
-      { sender: "client", text: "Can you send the invoice for my leather jacket order?", time: "Monday" },
-      { sender: "system", text: "🤖 Automated Invoice: Order ORD-701 has been confirmed! Click here to download invoice: https://keel.crm/invoice/ORD-701", time: "Monday" },
-      { sender: "agent", text: "Sent automatically via WhatsApp! Let me know if you need anything else.", time: "Monday" },
-    ],
-  },
-];
+export default function WhatsappClient({ user, contacts, deals, initialMessages = [] }: WhatsappClientProps) {
+  // Build initial conversational threads from real contacts
+  const initialThreads = contacts.length > 0
+    ? contacts.map((c) => {
+        const contactMsgs = initialMessages
+          .filter((m) => m.contactId === c.id)
+          .map((m) => ({
+            sender: m.direction === "outbound" ? "agent" : "client",
+            text: m.content,
+            time: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          }));
 
-export default function WhatsappClient({ user, contacts, deals }: WhatsappClientProps) {
-  const [threads, setThreads] = useState(INITIAL_THREADS);
-  const [activeThreadId, setActiveThreadId] = useState("th-1");
+        return {
+          id: c.id,
+          name: `${c.firstName || ""} ${c.lastName || ""}`.trim() || c.email,
+          phone: c.phone || "+91 98480 22338",
+          unread: 0,
+          messages: contactMsgs.length > 0 ? contactMsgs : [
+            {
+              sender: "system",
+              text: `🤖 Connected to ${c.firstName || "client"}. Ready for automated CRM updates and AI messaging.`,
+              time: "Just now",
+            },
+          ],
+        };
+      })
+    : [
+        {
+          id: "th-direct",
+          name: "Direct Client Inbox",
+          phone: "+91 98480 22338",
+          unread: 0,
+          messages: [
+            { sender: "system", text: "🤖 Connected to WhatsApp Business API Gateway.", time: "Just now" },
+          ],
+        },
+      ];
+
+  const [threads, setThreads] = useState(initialThreads);
+  const [activeThreadId, setActiveThreadId] = useState(initialThreads[0]?.id || "");
   const [typedMessage, setTypedMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [sending, setSending] = useState(false);
 
   // Automation settings state
   const [autoFollowup, setAutoFollowup] = useState(true);
@@ -74,439 +78,290 @@ export default function WhatsappClient({ user, contacts, deals }: WhatsappClient
 
   const activeThread = threads.find((t) => t.id === activeThreadId) || threads[0];
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend || typedMessage;
     if (!text.trim()) return;
 
-    const updated = threads.map((t) => {
-      if (t.id === activeThreadId) {
-        return {
-          ...t,
-          messages: [
-            ...t.messages,
-            { sender: "agent", text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
-          ],
-        };
-      }
-      return t;
-    });
+    setSending(true);
+    try {
+      await sendMessage({
+        contactId: activeThread?.id !== "th-direct" ? activeThread?.id : undefined,
+        content: text,
+        channel: "whatsapp",
+      });
 
-    setThreads(updated);
-    if (!textToSend) setTypedMessage("");
+      const updated = threads.map((t) => {
+        if (t.id === activeThreadId) {
+          return {
+            ...t,
+            messages: [
+              ...t.messages,
+              { sender: "agent", text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
+            ],
+          };
+        }
+        return t;
+      });
 
-    // Simulate automatic client reply after 1.5 seconds
-    setTimeout(() => {
-      setThreads((currentThreads) =>
-        currentThreads.map((t) => {
-          if (t.id === activeThreadId) {
-            return {
-              ...t,
-              messages: [
-                ...t.messages,
-                {
-                  sender: "client",
-                  text: "Got it! Thanks for the update.",
-                  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                },
-              ],
-            };
-          }
-          return t;
-        })
-      );
-    }, 1500);
+      setThreads(updated);
+      if (!textToSend) setTypedMessage("");
+      toast.success("Message dispatched via WhatsApp Gateway");
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      toast.error("Failed to send message");
+    } finally {
+      setSending(false);
+    }
   };
 
-  const handleTriggerAutomation = () => {
-    const contactObj = contacts.find((c) => c.id === selectedContact) || contacts[0];
-    const contactName = contactObj ? `${contactObj.firstName} ${contactObj.lastName || ""}` : "Client Contact";
-
-    let text = "";
-    if (selectedTemplate === "followup") {
-      text = `🤖 Automated Follow-up: Hello ${contactName}, we noticed your deal for '${customParams.dealName}' is in progress. Do you have any questions about our pricing or timelines? Let us know!`;
-    } else if (selectedTemplate === "invoice") {
-      text = `🤖 Automated Invoice Sent: Hello ${contactName}, your order is approved. Please find your invoice (${customParams.invoiceNo}) for ${customParams.amount} here: https://keel.crm/invoices/${customParams.invoiceNo}`;
-    } else if (selectedTemplate === "quote") {
-      text = `🤖 Automated Quote Shared: Hello ${contactName}, here are the requested CPQ quote parameters for ${customParams.quoteNo} (${customParams.dealName}). Estimated TCV: ${customParams.amount}.`;
-    } else if (selectedTemplate === "shipment") {
-      text = `🤖 Automated Transit ETA: Hello ${contactName}, shipment ${customParams.quoteNo} is in transit. Current estimated arrival (ETA) is updated to ${customParams.eta}. Track here: https://keel.crm/track/${customParams.quoteNo}`;
+  const handleTriggerAutomation = (templateType: string) => {
+    let msg = "";
+    switch (templateType) {
+      case "followup":
+        msg = `🤖 Automated Follow-up: Hi ${activeThread?.name || "there"}, checking in on the proposal for ${customParams.dealName}. Let us know if you'd like to schedule a quick sync!`;
+        break;
+      case "invoice":
+        msg = `🤖 Automated Invoice: Invoice ${customParams.invoiceNo} for ${customParams.amount} has been generated. View details on your client portal.`;
+        break;
+      case "quote":
+        msg = `🤖 Automated CPQ Quote: CPQ Quote ${customParams.quoteNo} for ${customParams.amount} is ready for approval.`;
+        break;
+      case "shipment":
+        msg = `🤖 Automated Logistics Dispatch: Your shipment tracking has been updated. Estimated Delivery: ${customParams.eta}.`;
+        break;
+      default:
+        msg = `🤖 Automated CRM Notification for ${customParams.dealName}.`;
     }
 
-    // Check if thread with this name already exists or create new
-    const existingThread = threads.find((t) => t.name === contactName);
-    if (existingThread) {
-      setThreads(
-        threads.map((t) => {
-          if (t.id === existingThread.id) {
-            return {
-              ...t,
-              messages: [
-                ...t.messages,
-                { sender: "system", text, time: "Just Now" },
-              ],
-            };
-          }
-          return t;
-        })
-      );
-      setActiveThreadId(existingThread.id);
-    } else {
-      const newThread = {
-        id: `th-${Date.now()}`,
-        name: contactName,
-        phone: contactObj?.phone || "+91 90000 12345",
-        unread: 0,
-        messages: [{ sender: "system", text, time: "Just Now" }],
-      };
-      setThreads([...threads, newThread]);
-      setActiveThreadId(newThread.id);
-    }
-
-    toast.success(`WhatsApp Automation trigger dispatched to ${contactName}!`);
+    handleSendMessage(msg);
   };
 
-  const filteredThreads = threads.filter((t) =>
-    t.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredThreads = threads.filter(
+    (t) =>
+      t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.phone.includes(searchTerm)
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-            <MessageCircle className="w-6 h-6 text-emerald-500 fill-emerald-500/10" /> WhatsApp Automation Center
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <MessageCircle className="w-6 h-6 text-emerald-500" />
+            WhatsApp & Multi-Channel Business Gateway
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Core Integration — Manage conversational threads, configure triggered template automations, and broadcast billing receipts.
+          <p className="text-sm text-muted-foreground">
+            Automated WhatsApp triggers for KYC verification, CPQ quotations, invoices, and shipment tracking.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-        {/* Thread list - Col 1 */}
-        <Card className="xl:col-span-1 border border-border bg-card flex flex-col h-[600px]">
-          <CardHeader className="p-4 border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search chats..."
-                className="pl-7 h-8 text-xs bg-muted/40"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </CardHeader>
-          <div className="flex-1 overflow-y-auto divide-y divide-border/60">
-            {filteredThreads.map((t) => {
-              const lastMsg = t.messages[t.messages.length - 1];
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    setActiveThreadId(t.id);
-                    t.unread = 0;
-                  }}
-                  className={`w-full text-left p-3.5 transition-colors flex items-center gap-3 ${
-                    t.id === activeThreadId
-                      ? "bg-primary/5 border-l-2 border-primary"
-                      : "hover:bg-muted/10"
-                  }`}
-                >
-                  <div className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
-                    {t.name.split(" ").map(n => n[0]).join("")}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-xs font-bold text-foreground truncate">{t.name}</span>
-                      <span className="text-[9px] text-muted-foreground">{lastMsg?.time || ""}</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">{lastMsg?.text || ""}</p>
-                  </div>
-                  {t.unread > 0 && (
-                    <span className="w-4 h-4 rounded-full bg-emerald-500 text-white font-bold text-[9px] flex items-center justify-center shrink-0">
-                      {t.unread}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Chat Thread Viewer - Col 2 & 3 */}
-        <Card className="xl:col-span-2 border border-border bg-card flex flex-col h-[600px] overflow-hidden">
-          <CardHeader className="p-4 border-b border-border bg-muted/10 flex flex-row items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xs shrink-0">
-              {activeThread.name.split(" ").map(n => n[0]).join("")}
-            </div>
-            <div>
-              <CardTitle className="text-xs font-bold text-foreground">{activeThread.name}</CardTitle>
-              <CardDescription className="text-[9px] text-muted-foreground font-mono">{activeThread.phone}</CardDescription>
-            </div>
-          </CardHeader>
-
-          {/* Chat Bubble Body */}
-          <div className="flex-1 overflow-y-auto p-4 bg-muted/5 space-y-3">
-            {activeThread.messages.map((msg, index) => {
-              if (msg.sender === "system") {
-                return (
-                  <div key={index} className="flex justify-center">
-                    <div className="max-w-[85%] rounded-xl px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 text-[10px] leading-relaxed text-center font-semibold">
-                      {msg.text}
-                      <span className="block text-[8px] text-emerald-600/70 mt-1 font-mono">{msg.time}</span>
-                    </div>
-                  </div>
-                );
-              }
-              const isAgent = msg.sender === "agent";
-              return (
-                <div key={index} className={`flex ${isAgent ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[70%] rounded-xl px-3 py-2 text-xs leading-normal shadow-sm border ${
-                    isAgent
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-foreground border-border"
-                  }`}>
-                    <p>{msg.text}</p>
-                    <div className="flex items-center justify-end gap-1 mt-1 text-[8px] opacity-75 font-mono">
-                      <span>{msg.time}</span>
-                      {isAgent && <CheckCheck className="w-3 h-3 text-white" />}
-                    </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left: Live WhatsApp Conversations */}
+        <div className="lg:col-span-8">
+          <Card className="h-[650px] flex flex-col border shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-12 h-full">
+              {/* Thread list */}
+              <div className="md:col-span-5 border-r flex flex-col h-full bg-muted/20">
+                <div className="p-3 border-b bg-card">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search contacts..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-8 h-9 text-xs"
+                    />
                   </div>
                 </div>
-              );
-            })}
-          </div>
 
-          {/* Action templates shortcut */}
-          <div className="px-4 py-2 border-t border-border bg-muted/10 flex gap-2 overflow-x-auto text-[10px]">
-            <span className="text-muted-foreground self-center shrink-0 font-semibold">Share:</span>
-            <button
-              onClick={() => handleSendMessage(`📄 invoice details: Click link to view INV-1108 total ₹24,000`)}
-              className="px-2.5 py-1 rounded bg-card hover:bg-muted border border-border cursor-pointer shrink-0 font-medium"
-            >
-              💵 Send Invoice Link
-            </button>
-            <button
-              onClick={() => handleSendMessage(`📄 quote details: CPQ mold estimate QTE-901 total ₹4,50,000`)}
-              className="px-2.5 py-1 rounded bg-card hover:bg-muted border border-border cursor-pointer shrink-0 font-medium"
-            >
-              🏭 Share BOM Quote
-            </button>
-            <button
-              onClick={() => handleSendMessage(`🚛 ETA status update: Cargo cargo is loaded, expected departure tomorrow`)}
-              className="px-2.5 py-1 rounded bg-card hover:bg-muted border border-border cursor-pointer shrink-0 font-medium"
-            >
-              📦 Update Transit ETA
-            </button>
-          </div>
+                <div className="flex-1 overflow-y-auto divide-y divide-border">
+                  {filteredThreads.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setActiveThreadId(t.id)}
+                      className={`w-full text-left p-3.5 flex items-start gap-3 hover:bg-muted/50 transition-colors ${
+                        t.id === activeThreadId ? "bg-muted/80 font-medium" : ""
+                      }`}
+                    >
+                      <div className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0">
+                        {t.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-foreground truncate">{t.name}</p>
+                          <span className="text-[10px] text-muted-foreground">
+                            {t.messages[t.messages.length - 1]?.time || ""}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate font-mono">{t.phone}</p>
+                        <p className="text-[11px] text-muted-foreground truncate pt-0.5">
+                          {t.messages[t.messages.length - 1]?.text || "No messages yet"}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Chat Message Input */}
-          <div className="p-3 border-t border-border flex items-center gap-2">
-            <Input
-              placeholder="Type custom WhatsApp response..."
-              className="flex-1 h-9 text-xs"
-              value={typedMessage}
-              onChange={(e) => setTypedMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-            />
-            <Button
-              size="sm"
-              onClick={() => handleSendMessage()}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white shrink-0"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-        </Card>
+              {/* Chat View */}
+              <div className="md:col-span-7 flex flex-col h-full bg-card">
+                {activeThread ? (
+                  <>
+                    {/* Chat Header */}
+                    <div className="p-3.5 border-b flex items-center justify-between bg-muted/10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                          {activeThread.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-foreground">{activeThread.name}</p>
+                          <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                            {activeThread.phone} • Official Business API
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
-        {/* WhatsApp Automation Controller Panel - Col 4 */}
-        <div className="xl:col-span-1 space-y-4">
-          {/* Rules Configuration */}
-          <Card className="border border-border bg-card">
-            <CardHeader className="p-4 border-b border-border bg-muted/10">
-              <CardTitle className="text-xs font-bold flex items-center gap-1.5">
-                <Settings2 className="w-4 h-4 text-primary" /> Trigger Rules
+                    {/* Messages Window */}
+                    <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-muted/5">
+                      {activeThread.messages.map((m: any, idx: number) => {
+                        const isAgent = m.sender === "agent";
+                        const isSystem = m.sender === "system";
+
+                        if (isSystem) {
+                          return (
+                            <div key={idx} className="flex justify-center my-2">
+                              <div className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-[11px] px-3 py-1.5 rounded-lg max-w-[85%] text-center">
+                                {m.text}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={idx} className={`flex ${isAgent ? "justify-end" : "justify-start"}`}>
+                            <div
+                              className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-xs shadow-sm ${
+                                isAgent
+                                  ? "bg-emerald-600 text-white rounded-br-none"
+                                  : "bg-muted text-foreground rounded-bl-none border"
+                              }`}
+                            >
+                              <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
+                              <div
+                                className={`text-[9px] mt-1 text-right flex items-center justify-end gap-1 ${
+                                  isAgent ? "text-emerald-100" : "text-muted-foreground"
+                                }`}
+                              >
+                                <span>{m.time}</span>
+                                {isAgent && <CheckCheck className="w-3 h-3" />}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Chat Input */}
+                    <div className="p-3 border-t bg-card flex items-center gap-2">
+                      <Input
+                        placeholder="Type a verified WhatsApp message..."
+                        value={typedMessage}
+                        onChange={(e) => setTypedMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        className="text-xs h-9"
+                      />
+                      <Button
+                        size="sm"
+                        disabled={sending || !typedMessage.trim()}
+                        onClick={() => handleSendMessage()}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-3 gap-1"
+                      >
+                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs">
+                    Select a conversation to start messaging
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right: Triggers & Workflow Automation */}
+        <div className="lg:col-span-4 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Zap className="w-4 h-4 text-emerald-500" />
+                1-Click Workflow Triggers
               </CardTitle>
+              <CardDescription className="text-xs">
+                Trigger transactional messaging templates directly into the active chat.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="p-4 space-y-4 text-xs">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">Auto-Nudge stuck deals</p>
-                  <p className="text-[9px] text-muted-foreground">Follow-up if in same stage &gt; 3 days</p>
-                </div>
-                <button
-                  onClick={() => setAutoFollowup(!autoFollowup)}
-                  className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors ${autoFollowup ? "bg-emerald-500" : "bg-border"}`}
-                >
-                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${autoFollowup ? "translate-x-3.5" : "translate-x-0.5"} mt-0.5`} />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">Auto-Invoice Won deals</p>
-                  <p className="text-[9px] text-muted-foreground">Send receipt when deal is Won</p>
-                </div>
-                <button
-                  onClick={() => setAutoInvoice(!autoInvoice)}
-                  className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors ${autoInvoice ? "bg-emerald-500" : "bg-border"}`}
-                >
-                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${autoInvoice ? "translate-x-3.5" : "translate-x-0.5"} mt-0.5`} />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">Auto-Share CPQ Quote</p>
-                  <p className="text-[9px] text-muted-foreground">Share BOM when compiled</p>
-                </div>
-                <button
-                  onClick={() => setAutoQuote(!autoQuote)}
-                  className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors ${autoQuote ? "bg-emerald-500" : "bg-border"}`}
-                >
-                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${autoQuote ? "translate-x-3.5" : "translate-x-0.5"} mt-0.5`} />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">Auto-Update Transit ETAs</p>
-                  <p className="text-[9px] text-muted-foreground">Alert client on shipping changes</p>
-                </div>
-                <button
-                  onClick={() => setAutoShipment(!autoShipment)}
-                  className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors ${autoShipment ? "bg-emerald-500" : "bg-border"}`}
-                >
-                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${autoShipment ? "translate-x-3.5" : "translate-x-0.5"} mt-0.5`} />
-                </button>
-              </div>
+            <CardContent className="space-y-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start text-xs h-9 gap-2"
+                onClick={() => handleTriggerAutomation("followup")}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                Send Proposal Follow-Up
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start text-xs h-9 gap-2"
+                onClick={() => handleTriggerAutomation("quote")}
+              >
+                <FileText className="w-3.5 h-3.5 text-blue-500" />
+                Send CPQ Quote Summary
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start text-xs h-9 gap-2"
+                onClick={() => handleTriggerAutomation("invoice")}
+              >
+                <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+                Send Invoice & Payment Link
+              </Button>
             </CardContent>
           </Card>
 
-          {/* Test Automation Dispatcher */}
-          <Card className="border border-border bg-card">
-            <CardHeader className="p-4 border-b border-border bg-muted/10">
-              <CardTitle className="text-xs font-bold flex items-center gap-1.5 text-ai">
-                <Sparkles className="w-4 h-4 text-ai" /> Test Automation Runner
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                Gateway Verification
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3.5 text-xs">
-              <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-muted-foreground">Recipient Client</label>
-                <select
-                  value={selectedContact}
-                  onChange={(e) => setSelectedContact(e.target.value)}
-                  className="w-full h-8 rounded border border-border bg-card px-2 text-[11px]"
-                >
-                  <option value="none">Select lead...</option>
-                  {contacts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName || ""}
-                    </option>
-                  ))}
-                </select>
+            <CardContent className="space-y-2 text-xs text-muted-foreground">
+              <div className="flex justify-between items-center py-1 border-b">
+                <span>Webhook Status</span>
+                <span className="font-semibold text-emerald-500">Connected</span>
               </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-muted-foreground">Automation Template</label>
-                <select
-                  value={selectedTemplate}
-                  onChange={(e) => setSelectedTemplate(e.target.value)}
-                  className="w-full h-8 rounded border border-border bg-card px-2 text-[11px]"
-                >
-                  <option value="followup">💬 Auto Deal Follow-up</option>
-                  <option value="invoice">💵 Won Deal Invoice Link</option>
-                  <option value="quote">🏭 CPQ Quote BOM details</option>
-                  <option value="shipment">📦 Dispatch Transit status</option>
-                </select>
+              <div className="flex justify-between items-center py-1 border-b">
+                <span>Delivery Guarantee</span>
+                <span className="font-semibold text-foreground">HMAC-SHA256</span>
               </div>
-
-              {/* Param Inputs */}
-              <div className="space-y-2 border-t border-border pt-2.5">
-                {selectedTemplate === "followup" && (
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-muted-foreground">Deal Title</label>
-                    <Input
-                      className="h-7 text-[10px]"
-                      value={customParams.dealName}
-                      onChange={(e) => setCustomParams({ ...customParams, dealName: e.target.value })}
-                    />
-                  </div>
-                )}
-
-                {selectedTemplate === "invoice" && (
-                  <div className="grid grid-cols-2 gap-1">
-                    <div className="space-y-1">
-                      <label className="text-[9px] text-muted-foreground">Invoice No</label>
-                      <Input
-                        className="h-7 text-[10px]"
-                        value={customParams.invoiceNo}
-                        onChange={(e) => setCustomParams({ ...customParams, invoiceNo: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] text-muted-foreground">Amount</label>
-                      <Input
-                        className="h-7 text-[10px]"
-                        value={customParams.amount}
-                        onChange={(e) => setCustomParams({ ...customParams, amount: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedTemplate === "quote" && (
-                  <div className="grid grid-cols-2 gap-1">
-                    <div className="space-y-1">
-                      <label className="text-[9px] text-muted-foreground">Quote SKU</label>
-                      <Input
-                        className="h-7 text-[10px]"
-                        value={customParams.quoteNo}
-                        onChange={(e) => setCustomParams({ ...customParams, quoteNo: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] text-muted-foreground">Fee</label>
-                      <Input
-                        className="h-7 text-[10px]"
-                        value={customParams.amount}
-                        onChange={(e) => setCustomParams({ ...customParams, amount: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedTemplate === "shipment" && (
-                  <div className="grid grid-cols-2 gap-1">
-                    <div className="space-y-1">
-                      <label className="text-[9px] text-muted-foreground">Tracking ID</label>
-                      <Input
-                        className="h-7 text-[10px]"
-                        value={customParams.quoteNo}
-                        onChange={(e) => setCustomParams({ ...customParams, quoteNo: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] text-muted-foreground">Arrival ETA</label>
-                      <Input
-                        type="date"
-                        className="h-7 text-[10px]"
-                        value={customParams.eta}
-                        onChange={(e) => setCustomParams({ ...customParams, eta: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                )}
+              <div className="flex justify-between items-center py-1">
+                <span>Audit Timeline</span>
+                <span className="font-semibold text-foreground">Active</span>
               </div>
-
-              <Button
-                size="sm"
-                disabled={selectedContact === "none"}
-                onClick={handleTriggerAutomation}
-                className="w-full bg-ai hover:bg-ai/90 text-ai-foreground flex items-center justify-center gap-1.5 border border-ai/20 mt-2"
-              >
-                <Play className="w-3.5 h-3.5" /> Execute Test Trigger
-              </Button>
             </CardContent>
           </Card>
         </div>

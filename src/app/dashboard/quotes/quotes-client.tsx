@@ -1,247 +1,234 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, Plus, Search, Layers, Calendar, DollarSign, PenTool, CheckCircle } from "lucide-react";
+import { FileText, Plus, Search, Layers, Calendar, DollarSign, PenTool, CheckCircle, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createQuote, updateQuoteStatus } from "@/app/actions/quotes";
 
 interface QuotesClientProps {
   user: any;
+  initialQuotes: any[];
 }
 
-const INITIAL_QUOTES = [
-  {
-    id: "QTE-501",
-    customer: "Precision Auto Components Ltd.",
-    partNo: "C-9908 (Alloy Wheel molds)",
-    qty: 50,
-    unitPrice: "₹1,20,000",
-    total: "₹60,00,000",
-    leadTime: "4 weeks",
-    status: "Approved",
-  },
-  {
-    id: "QTE-502",
-    customer: "Vindhya heavy electrics",
-    partNo: "S-1011 (Turbine gaskets)",
-    qty: 15,
-    unitPrice: "₹4,50,000",
-    total: "₹67,50,000",
-    leadTime: "6 weeks",
-    status: "Draft",
-  },
-  {
-    id: "QTE-503",
-    customer: "Apex Castings Inc.",
-    partNo: "A-5491 (Hydraulic valves)",
-    qty: 200,
-    unitPrice: "₹18,000",
-    total: "₹36,00,000",
-    leadTime: "3 weeks",
-    status: "Sent to Client",
-  },
-];
-
-export default function QuotesClient({ user }: QuotesClientProps) {
-  const [quotes, setQuotes] = useState(INITIAL_QUOTES);
+export default function QuotesClient({ user, initialQuotes }: QuotesClientProps) {
+  const [quotes, setQuotes] = useState(initialQuotes || []);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [newForm, setNewForm] = useState({
-    customer: "",
-    partNo: "",
-    qty: 1,
-    unitPrice: "",
-    total: "",
-    leadTime: "3 weeks",
-    status: "Draft",
+    title: "",
+    clientName: "",
+    amount: "",
+    validUntil: "",
   });
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.customer || !newForm.partNo || !newForm.unitPrice) return;
-    const qtyVal = Number(newForm.qty) || 1;
-    const unitPriceNum = Number(newForm.unitPrice.replace(/[^0-9]/g, "")) || 0;
-    const computedTotal = qtyVal * unitPriceNum;
+    if (!newForm.title || !newForm.clientName || !newForm.amount) return;
 
-    const newQuote = {
-      id: `QTE-${Math.floor(500 + Math.random() * 500)}`,
-      customer: newForm.customer,
-      partNo: newForm.partNo,
-      qty: qtyVal,
-      unitPrice: `₹${unitPriceNum.toLocaleString("en-IN")}`,
-      total: `₹${computedTotal.toLocaleString("en-IN")}`,
-      leadTime: newForm.leadTime,
-      status: newForm.status,
-    };
-    setQuotes([newQuote, ...quotes]);
-    setShowAdd(false);
-    setNewForm({
-      customer: "",
-      partNo: "",
-      qty: 1,
-      unitPrice: "",
-      total: "",
-      leadTime: "3 weeks",
-      status: "Draft",
-    });
+    setLoading(true);
+    try {
+      const created = await createQuote({
+        title: newForm.title,
+        clientName: newForm.clientName,
+        amount: Number(newForm.amount),
+      });
+
+      setQuotes([created, ...quotes]);
+      setShowAdd(false);
+      setNewForm({ title: "", clientName: "", amount: "", validUntil: "" });
+    } catch (err) {
+      console.error("Failed to create quotation:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (id: string, status: "draft" | "sent" | "accepted" | "rejected") => {
+    try {
+      await updateQuoteStatus(id, status);
+      setQuotes(quotes.map((q) => (q.id === id ? { ...q, status } : q)));
+    } catch (err) {
+      console.error("Failed to update status:", err);
+    }
   };
 
   const filtered = quotes.filter(
     (q) =>
-      q.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      q.partNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      q.id.toLowerCase().includes(searchTerm.toLowerCase())
+      q.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      q.client?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      q.id?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-            <FileText className="w-6 h-6 text-primary" /> CPQ Quote Builder
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <FileText className="w-6 h-6 text-primary" />
+            CPQ & Quotations
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Manufacturing Vertical — Configure pricing schemas, estimate production lead times, and dispatch quotes with BOM parameters.
+          <p className="text-sm text-muted-foreground">
+            Generate, approve, and track custom quotes, bill of materials, and engineering pricing.
           </p>
         </div>
-        <Button onClick={() => setShowAdd(!showAdd)}>
-          <Plus className="w-4 h-4 mr-1" /> Create CPQ Quote
+        <Button onClick={() => setShowAdd(!showAdd)} className="gap-2">
+          <Plus className="w-4 h-4" />
+          Create Quote
         </Button>
       </div>
 
+      {/* Add Quotation Form */}
       {showAdd && (
-        <Card className="border border-border bg-card">
+        <Card className="border-primary/20 bg-card">
           <CardHeader>
-            <CardTitle className="text-sm font-bold">Configure Proposal Quote (CPQ)</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              Define product part specs, order volume quantities, and manufacturing lead times.
+            <CardTitle className="text-base font-semibold">New Engineering Quotation</CardTitle>
+            <CardDescription className="text-xs">
+              Generate a configure-price-quote draft with line items and validity date.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAdd} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Client Company</label>
+                  <label className="text-xs font-medium text-foreground">Quote Title / Scope</label>
                   <Input
-                    placeholder="Customer Account name"
-                    value={newForm.customer}
-                    onChange={(e) => setNewForm({ ...newForm, customer: e.target.value })}
                     required
+                    placeholder="e.g. Multi-Year Cloud License"
+                    value={newForm.title}
+                    onChange={(e) => setNewForm({ ...newForm, title: e.target.value })}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Product SKU / Part Number</label>
+                  <label className="text-xs font-medium text-foreground">Customer / Account</label>
                   <Input
-                    placeholder="e.g. M-889 (Copper Coils)"
-                    value={newForm.partNo}
-                    onChange={(e) => setNewForm({ ...newForm, partNo: e.target.value })}
                     required
+                    placeholder="e.g. Acme Enterprises Ltd."
+                    value={newForm.clientName}
+                    onChange={(e) => setNewForm({ ...newForm, clientName: e.target.value })}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Order Quantity</label>
+                  <label className="text-xs font-medium text-foreground">Total Quote Amount (₹)</label>
                   <Input
+                    required
                     type="number"
-                    value={newForm.qty}
-                    onChange={(e) => setNewForm({ ...newForm, qty: Number(e.target.value) })}
-                    required
+                    placeholder="500000"
+                    value={newForm.amount}
+                    onChange={(e) => setNewForm({ ...newForm, amount: e.target.value })}
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Unit Cost (₹)</label>
-                  <Input
-                    placeholder="e.g. 50000"
-                    value={newForm.unitPrice}
-                    onChange={(e) => setNewForm({ ...newForm, unitPrice: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Production Lead Time</label>
-                  <Input
-                    placeholder="e.g. 4 weeks"
-                    value={newForm.leadTime}
-                    onChange={(e) => setNewForm({ ...newForm, leadTime: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Quote Stage</label>
-                  <select
-                    value={newForm.status}
-                    onChange={(e) => setNewForm({ ...newForm, status: e.target.value })}
-                    className="w-full h-9 rounded-md border border-input bg-card px-3 text-xs"
-                  >
-                    <option>Draft</option>
-                    <option>Pending Manager Review</option>
-                    <option>Sent to Client</option>
-                    <option>Approved</option>
-                  </select>
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setShowAdd(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Compile Quote</Button>
+                <Button type="submit" disabled={loading} className="gap-2">
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Save Quotation
+                </Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Filter active quotes..."
-            className="pl-8 text-xs"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4">
-        {filtered.map((q) => (
-          <Card key={q.id} className="border border-border bg-card">
-            <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold font-mono px-2 py-0.5 rounded bg-primary/10 text-primary">
-                    {q.id}
-                  </span>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Layers className="w-3.5 h-3.5" /> Part: {q.partNo}
-                  </span>
-                </div>
-                <h3 className="text-sm font-bold text-foreground mt-1">{q.customer}</h3>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
-                  <span>Quantity: <span className="font-semibold text-foreground">{q.qty}</span></span>
-                  <span>•</span>
-                  <span>Unit Price: <span className="font-semibold text-foreground">{q.unitPrice}</span></span>
-                  <span>•</span>
-                  <span>Lead Time: <span className="font-semibold text-foreground">{q.leadTime}</span></span>
-                </div>
-              </div>
-
-              <div className="flex sm:flex-col items-end gap-4 sm:gap-2 justify-between">
-                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                  q.status === "Approved" ? "bg-success/15 text-success" :
-                  q.status === "Sent to Client" ? "bg-primary/15 text-primary" :
-                  "bg-muted text-muted-foreground border border-border"
-                }`}>
-                  {q.status}
-                </span>
-                <div className="text-right">
-                  <p className="text-[10px] text-muted-foreground">Est. Total Amount</p>
-                  <p className="text-xs font-bold text-foreground">{q.total}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Search & List */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base font-semibold">Active Quotations</CardTitle>
+              <CardDescription className="text-xs">
+                {quotes.length} total quotations recorded in database
+              </CardDescription>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-muted-foreground" />
+              <Input
+                placeholder="Search quotations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8 h-9 text-xs"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              No quotations found. Click "Create Quote" to generate the first CPQ quote.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b bg-muted/40 text-muted-foreground uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="p-3">Quote ID & Title</th>
+                    <th className="p-3">Customer</th>
+                    <th className="p-3">Total Value</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.map((q) => (
+                    <tr key={q.id} className="hover:bg-muted/50 transition-colors">
+                      <td className="p-3 font-medium">
+                        <div className="font-semibold text-foreground">{q.title}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{q.id}</div>
+                      </td>
+                      <td className="p-3 text-muted-foreground">{q.client?.name || "Direct Client"}</td>
+                      <td className="p-3 font-semibold text-foreground">
+                        ₹{(q.total || 0).toLocaleString()}
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            q.status === "accepted"
+                              ? "bg-emerald-500/10 text-emerald-500"
+                              : q.status === "sent"
+                              ? "bg-blue-500/10 text-blue-500"
+                              : "bg-amber-500/10 text-amber-500"
+                          }`}
+                        >
+                          {q.status?.toUpperCase() || "DRAFT"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right space-x-1">
+                        {q.status !== "accepted" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[10px]"
+                            onClick={() => handleStatusUpdate(q.id, "accepted")}
+                          >
+                            Mark Accepted
+                          </Button>
+                        )}
+                        {q.status === "draft" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[10px]"
+                            onClick={() => handleStatusUpdate(q.id, "sent")}
+                          >
+                            Mark Sent
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

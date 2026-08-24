@@ -2,22 +2,27 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import WhatsappClient from "./whatsapp-client";
 import { db } from "@/db";
-import { contacts, deals } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { contacts, deals, messageRecords } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 
 export default async function WhatsappPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  // Fetch some contacts and deals to hook into conversational choices
   const contactsData = await db.query.contacts.findMany({
     where: eq(contacts.orgId, session.user.orgId),
-    limit: 20,
+    limit: 50,
   });
 
   const dealsData = await db.query.deals.findMany({
     where: eq(deals.orgId, session.user.orgId),
-    limit: 20,
+    limit: 50,
+  });
+
+  const messagesData = await db.query.messageRecords.findMany({
+    where: eq(messageRecords.orgId, session.user.orgId),
+    orderBy: [desc(messageRecords.createdAt)],
+    limit: 100,
   });
 
   return (
@@ -25,6 +30,7 @@ export default async function WhatsappPage() {
       user={session.user}
       contacts={contactsData}
       deals={dealsData}
+      initialMessages={messagesData}
     />
   );
 }
