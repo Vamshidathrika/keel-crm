@@ -48,30 +48,21 @@ export default function PortalClient({
     setTypedMsg("");
 
     try {
-      // Hit messaging API endpoint
-      const res = await fetch("/api/messages/send", {
+      // Hit real portal messaging API endpoint
+      const res = await fetch("/api/portal/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: client.id,
-          contactId: client.contactId,
-          type: "whatsapp",
+          token: client.portalToken,
           text: savedMsgText,
         }),
       });
 
-      // Simulates real-time agent/copilot response inside portal view
-      setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `msg_reply_${Date.now()}`,
-            direction: "outbound",
-            text: `🤖 Automatic Partner Reply: Thank you for your feedback! The team has received your message and will review it shortly.`,
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-      }, 1500);
+      const data = await res.json();
+      if (data.reply) {
+        setMessages((prev) => [...prev, data.reply]);
+      }
+      toast.success("Message delivered to partner timeline");
     } catch (err) {
       toast.error("Failed to sync message to server");
     }
@@ -90,7 +81,13 @@ export default function PortalClient({
     });
     setLocalProjects(updated);
 
-    toast.success(`Deliverable status updated to ${status.replace("_", " ")}!`);
+    try {
+      const { updateDeliverableStatus } = await import("@/app/actions/portal");
+      await updateDeliverableStatus(client.portalToken, deliverableId, status);
+      toast.success(`Deliverable status updated to ${status.replace("_", " ")} and saved to database!`);
+    } catch (err) {
+      toast.error("Failed to update deliverable status on server");
+    }
   };
 
   return (

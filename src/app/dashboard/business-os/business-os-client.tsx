@@ -30,6 +30,7 @@ import {
   ClipboardList
 } from "lucide-react";
 import { toast } from "sonner";
+import { convertDealToClientProject, createBusinessOsProposal, createBusinessOsInvoice } from "@/app/actions/business-os";
 
 interface BusinessOsClientProps {
   user: any;
@@ -367,20 +368,23 @@ export default function BusinessOsClient({
 
                     <div className="flex justify-end gap-1.5 pt-2">
                       <Button size="xs" variant="ghost" onClick={() => setShowQuoteForm(false)}>Cancel</Button>
-                      <Button size="xs" onClick={() => {
+                      <Button size="xs" onClick={async () => {
                         const matchedDeal = deals.find((d) => d.id === quoteForm.dealId);
-                        const totalCost = quoteForm.items.reduce((s, it) => s + (it.qty * it.price), 0);
-                        const newQte = {
-                          id: `qte_${Date.now()}`,
-                          title: matchedDeal?.title || "Custom Proposal Quote",
-                          total: totalCost,
-                          status: "sent",
-                          client: { name: activeClient?.name },
-                          createdAt: new Date().toISOString(),
-                        };
-                        setQuotationsState([newQte, ...quotationsState]);
-                        setShowQuoteForm(false);
-                        toast.success("Quotation generated successfully!");
+                        if (!activeClient) return;
+
+                        try {
+                          const createdQuote = await createBusinessOsProposal({
+                            clientId: activeClient.id,
+                            dealId: quoteForm.dealId !== "none" ? quoteForm.dealId : undefined,
+                            title: matchedDeal?.title || "Custom Proposal Quote",
+                            items: quoteForm.items,
+                          });
+                          setQuotationsState([createdQuote, ...quotationsState]);
+                          setShowQuoteForm(false);
+                          toast.success("Quotation generated & saved to database successfully!");
+                        } catch (err) {
+                          toast.error("Failed to generate quote");
+                        }
                       }}>Publish & Share Proposal</Button>
                     </div>
                   </div>
@@ -633,28 +637,23 @@ export default function BusinessOsClient({
               </div>
               <div className="flex justify-end gap-1.5 pt-2">
                 <Button size="xs" variant="ghost" onClick={() => setShowConvertDialog(false)}>Cancel</Button>
-                <Button size="xs" onClick={() => {
+                <Button size="xs" onClick={async () => {
                   const matchedDeal = deals.find((d) => d.id === selectedWonDealId);
                   if (!matchedDeal) return;
-                  const token = `portal_${Date.now()}`;
-                  const newCli = {
-                    id: `cli_${Date.now()}`,
-                    name: matchedDeal.title.replace("Deal", "Partner"),
-                    portalToken: token,
-                    email: "procurement@partner.com",
-                  };
-                  const newProj = {
-                    id: `proj_${Date.now()}`,
-                    name: `${matchedDeal.title} Delivery`,
-                    status: "active",
-                    client: newCli,
-                    projectTasks: [],
-                    deliverables: [],
-                  };
-                  setClientsState([newCli, ...clientsState]);
-                  setProjectsState([newProj, ...projectsState]);
-                  setShowConvertDialog(false);
-                  toast.success("Deal converted! Client portal active.");
+
+                  try {
+                    const res = await convertDealToClientProject({
+                      dealId: matchedDeal.id,
+                      clientName: matchedDeal.title.replace("Deal", "Partner"),
+                      budget: matchedDeal.value,
+                    });
+                    setClientsState([res.client, ...clientsState]);
+                    setProjectsState([{ ...res.project, client: res.client, projectTasks: [], deliverables: [] }, ...projectsState]);
+                    setShowConvertDialog(false);
+                    toast.success("Deal converted! Client portal provisioned in SQLite.");
+                  } catch (err) {
+                    toast.error("Failed to convert deal");
+                  }
                 }}>Convert & Provision Portal</Button>
               </div>
             </Card>

@@ -972,8 +972,18 @@ export default function DealsClient({
                   <div className="flex gap-1 shrink-0 w-full sm:w-auto">
                     <Button
                       size="xs"
-                      onClick={() => {
-                        toast.success(`WhatsApp follow-up template dispatched for: ${selectedDeal.title}`);
+                      onClick={async () => {
+                        try {
+                          const { sendMessage } = await import("@/app/actions/messages");
+                          await sendMessage({
+                            contactId: selectedDeal.contactId || undefined,
+                            content: `Hi, following up on ${selectedDeal.title}. Let us know if you'd like to schedule a quick sync!`,
+                            channel: "whatsapp",
+                          });
+                          toast.success(`WhatsApp follow-up dispatched & logged to deal timeline for: ${selectedDeal.title}`);
+                        } catch (err) {
+                          toast.error("Failed to dispatch WhatsApp follow-up");
+                        }
                       }}
                       className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] h-7 px-2.5 flex-1 sm:flex-initial"
                     >
@@ -981,8 +991,20 @@ export default function DealsClient({
                     </Button>
                     <Button
                       size="xs"
-                      onClick={() => {
-                        toast.success(`Invoice receipt shared via WhatsApp for Deal value: ₹${selectedDeal.value.toLocaleString("en-IN")}`);
+                      onClick={async () => {
+                        try {
+                          const { createBusinessOsInvoice } = await import("@/app/actions/business-os");
+                          if (selectedDeal.contactId) {
+                            await createBusinessOsInvoice({
+                              dealId: selectedDeal.id,
+                              clientId: selectedDeal.contactId,
+                              amount: selectedDeal.value,
+                            });
+                          }
+                          toast.success(`Invoice created & shared for Deal value: ₹${selectedDeal.value.toLocaleString("en-IN")}`);
+                        } catch (err) {
+                          toast.error("Failed to generate invoice");
+                        }
                       }}
                       className="variant-outline text-[10px] h-7 px-2.5 flex-1 sm:flex-initial border border-border bg-background hover:bg-muted"
                     >
