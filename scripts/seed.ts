@@ -136,21 +136,47 @@ async function main() {
   );
   console.log("✓ Provisioned default widgets");
 
-  // 3. Create Admin User (Clean root account)
+  // 3. Create Baseline User Accounts (Admin, Manager, Rep)
   const passwordHash = await bcrypt.hash("password123", 10);
 
   const [admin] = await db
     .insert(users)
     .values({
       orgId: org.id,
-      name: "Admin User",
+      name: "Alice Admin",
       email: "admin@keel.crm",
       passwordHash,
       role: "admin",
     })
     .returning();
 
-  console.log(`✓ Created Clean Admin Account: ${admin.email} (password: password123)`);
+  const [manager] = await db
+    .insert(users)
+    .values({
+      orgId: org.id,
+      name: "Bob Manager",
+      email: "manager@keel.crm",
+      passwordHash,
+      role: "manager",
+    })
+    .returning();
+
+  const [rep] = await db
+    .insert(users)
+    .values({
+      orgId: org.id,
+      name: "Charlie Rep",
+      email: "rep@keel.crm",
+      passwordHash,
+      role: "rep",
+      managerId: manager.id,
+    })
+    .returning();
+
+  console.log("✓ Created Clean Baseline Accounts:");
+  console.log("   - Admin:   admin@keel.crm   (password123)");
+  console.log("   - Manager: manager@keel.crm (password123)");
+  console.log("   - Rep:     rep@keel.crm     (password123)");
 
   // 4. Create Standard Default Sales Pipeline & Clean Stages
   const [defaultPipeline] = await db
