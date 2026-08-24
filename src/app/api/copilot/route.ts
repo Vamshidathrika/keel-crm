@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { runCopilotToolLoop } from "@/lib/ai/copilot";
+import { executeAgentHarness } from "@/lib/agents/harness/runner";
 
 export async function POST(req: Request) {
   try {
@@ -10,19 +10,26 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { message, history } = body;
+    const { message } = body;
 
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
-    const result = await runCopilotToolLoop(
-      message,
-      history || [],
-      session.user as any
-    );
+    const output = await executeAgentHarness({
+      orgId: session.user.orgId,
+      agentType: "copilot",
+      userPrompt: message,
+      targetEntityType: "org",
+      targetEntityId: session.user.orgId,
+    });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      text: output.summary,
+      toolsInvoked: output.toolsInvoked,
+      thoughtProcess: output.thoughtProcess,
+      runId: output.runId,
+    });
   } catch (error: any) {
     console.error("Copilot route error:", error);
     return NextResponse.json(
