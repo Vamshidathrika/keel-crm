@@ -68,10 +68,10 @@ export default async function DashboardLayout({
   return (
     <SessionProvider session={session}>
       <BrandingProvider>
-      <div className="flex min-h-screen bg-background text-foreground font-sans">
-        {/* Sidebar */}
-        <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar shrink-0">
-          <div className="flex h-16 items-center gap-2 px-6 border-b border-border">
+      <div className="flex h-screen overflow-hidden bg-background text-foreground font-sans">
+        {/* Sticky Sidebar */}
+        <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar shrink-0 h-screen sticky top-0 z-30 select-none">
+          <div className="flex h-16 items-center gap-2 px-6 border-b border-border shrink-0">
             {logoUrl ? (
               <img src={logoUrl} alt={appName} className="w-8 h-8 rounded object-contain" />
             ) : (
@@ -89,11 +89,11 @@ export default async function DashboardLayout({
             </div>
           </div>
 
-          <div className="flex-1 py-4 overflow-y-auto">
+          <div className="flex-1 py-4 overflow-y-auto scrollbar-thin">
             <SidebarNav role={session.user.role} enabledWidgetKeys={enabledWidgetKeys} />
           </div>
 
-          <div className="p-4 border-t border-border bg-sidebar-accent/10">
+          <div className="p-4 border-t border-border bg-sidebar-accent/10 shrink-0">
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground truncate">
@@ -114,10 +114,10 @@ export default async function DashboardLayout({
           </div>
         </aside>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Main Workspace Area */}
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
           {/* Header */}
-          <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6 sticky top-0 z-40">
+          <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6 shrink-0 z-40">
             {/* Search command bar trigger */}
             <div className="flex-1 max-w-md">
               <SearchCommandTrigger />
@@ -136,8 +136,8 @@ export default async function DashboardLayout({
             </div>
           </header>
 
-          {/* Main scrollable body */}
-          <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          {/* Independent Scrollable Workarea */}
+          <main className="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth">
             <div className="max-w-7xl mx-auto space-y-6">
               {children}
             </div>
