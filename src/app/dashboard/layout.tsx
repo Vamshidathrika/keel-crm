@@ -32,19 +32,33 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  let session = null;
+  try {
+    session = await auth();
+  } catch (err) {
+    console.error("Dashboard auth check error:", err);
+  }
 
   if (!session?.user) {
     redirect("/login");
   }
 
   // Load Organization + Branding
-  const org = await db.query.organizations.findFirst({
-    where: eq(organizations.id, session.user.orgId),
-  });
+  let org: any = null;
+  let widgetRows: any[] = [];
+  try {
+    org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, session.user.orgId),
+    });
 
-  if (!org) {
-    redirect("/login");
+    widgetRows = await db.query.orgWidgets.findMany({
+      where: and(
+        eq(orgWidgets.orgId, session.user.orgId),
+        eq(orgWidgets.isEnabled, true)
+      ),
+    });
+  } catch (err) {
+    console.error("Dashboard DB load error:", err);
   }
 
   const branding = (org?.brandingConfig as any) ?? {};
@@ -52,13 +66,6 @@ export default async function DashboardLayout({
   const logoUrl = branding.logoUrl || null;
   const orgName = org?.name || "Keel Workspace";
 
-  // Load enabled widget keys for this org
-  const widgetRows = await db.query.orgWidgets.findMany({
-    where: and(
-      eq(orgWidgets.orgId, session.user.orgId),
-      eq(orgWidgets.isEnabled, true)
-    ),
-  });
   // If no widget rows yet → default to all core widgets
   const enabledWidgetKeys: string[] =
     widgetRows.length > 0
