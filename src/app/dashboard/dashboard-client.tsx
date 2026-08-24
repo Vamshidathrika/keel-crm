@@ -54,13 +54,13 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({
-  funnelData,
-  forecastData,
-  leaderboardData,
-  hotLeads,
-  recentActivities,
-  deals,
-  stages,
+  funnelData = [],
+  forecastData = [],
+  leaderboardData = [],
+  hotLeads = [],
+  recentActivities = [],
+  deals = [],
+  stages = [],
   enabledWidgetKeys = [],
   businessType = "logistics",
 }: DashboardClientProps) {

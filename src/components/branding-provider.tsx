@@ -1,18 +1,16 @@
-import { getBrandingConfig } from "@/server/actions/branding";
+import React from "react";
+import type { BrandingConfig } from "@/server/actions/branding";
 
 interface BrandingProviderProps {
   children: React.ReactNode;
+  branding?: BrandingConfig;
 }
 
 /**
- * Server component that reads this org's branding config and injects
- * CSS custom-property overrides as an inline <style> tag.
- * This means each organisation can have its own primary colour, app name, etc.
- * without any client-side flash.
+ * Injects CSS custom-property overrides as an inline <style> tag.
+ * Fast, synchronous, and prevents duplicate auth() / database roundtrips.
  */
-export async function BrandingProvider({ children }: BrandingProviderProps) {
-  const branding = await getBrandingConfig();
-
+export function BrandingProvider({ children, branding = {} }: BrandingProviderProps) {
   const cssVars: string[] = [];
 
   if (branding.primaryColor) {
@@ -23,14 +21,11 @@ export async function BrandingProvider({ children }: BrandingProviderProps) {
     cssVars.push(`--chart-1: ${branding.primaryColor};`);
   }
 
-  const inlineStyle =
-    cssVars.length > 0 ? `:root { ${cssVars.join(" ")} }` : null;
+  const inlineStyle = cssVars.length > 0 ? `:root { ${cssVars.join(" ")} }` : null;
 
   return (
     <>
-      {inlineStyle && (
-        <style dangerouslySetInnerHTML={{ __html: inlineStyle }} />
-      )}
+      {inlineStyle && <style dangerouslySetInnerHTML={{ __html: inlineStyle }} />}
       {children}
     </>
   );

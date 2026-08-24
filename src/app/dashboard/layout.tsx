@@ -76,7 +76,7 @@ export default async function DashboardLayout({
 
   return (
     <SessionProvider session={session}>
-      <BrandingProvider>
+      <BrandingProvider branding={branding}>
       <div className="flex h-screen overflow-hidden bg-background text-foreground font-sans">
         {/* Sticky Sidebar */}
         <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar shrink-0 h-screen sticky top-0 z-30 select-none">
