@@ -27,6 +27,8 @@ import SearchCommand from "@/components/search-command";
 import { BrandingProvider } from "@/components/branding-provider";
 import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {
