@@ -6,75 +6,83 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { createProperty, updatePropertyStatus } from "@/app/actions/properties";
+import { toast } from "sonner";
+
 interface PropertiesClientProps {
   user: any;
+  initialProperties?: any[];
 }
 
-const INITIAL_PROPERTIES = [
-  {
-    id: "PROP-101",
-    title: "Premium 3BHK Apartment - Gachibowli",
-    location: "Gachibowli, Hyderabad",
-    price: "₹1,85,00,000",
-    status: "Active Listing",
-    size: "2,200 sqft",
-    type: "Residential",
-    agent: "Sanjay Kumar",
-  },
-  {
-    id: "PROP-102",
-    title: "Commercial Office Space - Jubilee Hills",
-    location: "Jubilee Hills, Hyderabad",
-    price: "₹12,40,00,000",
-    status: "Under Offer",
-    size: "8,500 sqft",
-    type: "Commercial",
-    agent: "Sanjay Kumar",
-  },
-  {
-    id: "PROP-103",
-    title: "Luxury Villa - Whisper Valley",
-    location: "Kokapet, Hyderabad",
-    price: "₹6,80,00,000",
-    status: "Draft",
-    size: "4,500 sqft",
-    type: "Residential",
-    agent: "Meera Reddy",
-  },
-];
-
-export default function PropertiesClient({ user }: PropertiesClientProps) {
-  const [properties, setProperties] = useState(INITIAL_PROPERTIES);
+export default function PropertiesClient({ user, initialProperties = [] }: PropertiesClientProps) {
+  const [properties, setProperties] = useState(initialProperties);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [newForm, setNewForm] = useState({
     title: "",
     location: "",
-    price: "",
+    price: "₹1,50,00,000",
     status: "Active Listing",
-    size: "",
-    type: "Residential",
+    size: "2,400 sqft",
+    type: "Commercial",
     agent: user.name || "Agent",
   });
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.title || !newForm.location || !newForm.price) return;
-    const newProp = {
-      id: `PROP-${Math.floor(100 + Math.random() * 900)}`,
-      ...newForm,
-    };
-    setProperties([newProp, ...properties]);
-    setShowAdd(false);
-    setNewForm({
-      title: "",
-      location: "",
-      price: "",
-      status: "Active Listing",
-      size: "",
-      type: "Residential",
-      agent: user.name || "Agent",
-    });
+    if (!newForm.title || !newForm.location || !newForm.price) {
+      toast.error("Please fill in title, location and price.");
+      return;
+    }
+    setIsPending(true);
+    try {
+      const created = await createProperty({
+        title: newForm.title,
+        location: newForm.location,
+        price: newForm.price,
+        type: newForm.type,
+        status: newForm.status,
+      });
+      setProperties([
+        {
+          id: created.id,
+          title: created.title,
+          location: created.location,
+          price: created.price,
+          status: created.status,
+          size: newForm.size,
+          type: created.type,
+          agent: user.name || "Agent",
+        },
+        ...properties,
+      ]);
+      setShowAdd(false);
+      toast.success("Property added to database successfully!");
+      setNewForm({
+        title: "",
+        location: "",
+        price: "₹1,50,00,000",
+        status: "Active Listing",
+        size: "2,400 sqft",
+        type: "Commercial",
+        agent: user.name || "Agent",
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create property");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      await updatePropertyStatus(id, status);
+      setProperties(properties.map((p) => (p.id === id ? { ...p, status } : p)));
+      toast.success(`Updated property status to "${status}"`);
+    } catch (err: any) {
+      toast.error("Failed to update status");
+    }
   };
 
   const filtered = properties.filter(

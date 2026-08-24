@@ -6,80 +6,67 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { createShipment, updateShipmentStatus } from "@/app/actions/shipments";
+import { toast } from "sonner";
+
 interface ShipmentsClientProps {
   user: any;
+  initialShipments?: any[];
 }
 
-const INITIAL_SHIPMENTS = [
-  {
-    id: "SH-101",
-    dealName: "500t Copper Ore - Valparaiso to Mumbai",
-    carrier: "Maersk Line",
-    origin: "Valparaiso, Chile",
-    destination: "Mumbai, India",
-    eta: "2026-08-05",
-    status: "In Transit",
-    mode: "Ocean Freight",
-    cost: "₹18,50,000",
-  },
-  {
-    id: "SH-102",
-    dealName: "Electronics Batch C - Shenzhen to Bangalore",
-    carrier: "DHL Express",
-    origin: "Shenzhen, China",
-    destination: "Bangalore, India",
-    eta: "2026-07-20",
-    status: "Arrived Port",
-    mode: "Air Cargo",
-    cost: "₹4,20,000",
-  },
-  {
-    id: "SH-103",
-    dealName: "Industrial Machinery Parts - Stuttgart to Chennai",
-    carrier: "Hapag-Lloyd",
-    origin: "Hamburg, Germany",
-    destination: "Chennai, India",
-    eta: "2026-08-12",
-    status: "Booking Confirmed",
-    mode: "Ocean Freight",
-    cost: "₹12,80,000",
-  },
-];
-
-export default function ShipmentsClient({ user }: ShipmentsClientProps) {
-  const [shipments, setShipments] = useState(INITIAL_SHIPMENTS);
+export default function ShipmentsClient({ user, initialShipments = [] }: ShipmentsClientProps) {
+  const [shipments, setShipments] = useState(initialShipments);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [newForm, setNewForm] = useState({
     dealName: "",
-    carrier: "",
+    carrier: "Maersk Line",
     origin: "",
     destination: "",
-    eta: "",
+    eta: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
     status: "Booking Confirmed",
     mode: "Ocean Freight",
-    cost: "",
+    cost: "₹10,00,000",
   });
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.dealName || !newForm.origin || !newForm.destination) return;
-    const newShipment = {
-      id: `SH-${Math.floor(100 + Math.random() * 900)}`,
-      ...newForm,
-    };
-    setShipments([newShipment, ...shipments]);
-    setShowAdd(false);
-    setNewForm({
-      dealName: "",
-      carrier: "",
-      origin: "",
-      destination: "",
-      eta: "",
-      status: "Booking Confirmed",
-      mode: "Ocean Freight",
-      cost: "",
-    });
+    if (!newForm.dealName || !newForm.origin || !newForm.destination) {
+      toast.error("Please fill in deal name, origin and destination.");
+      return;
+    }
+    setIsPending(true);
+    try {
+      const created = await createShipment(newForm);
+      setShipments([created, ...shipments]);
+      setShowAdd(false);
+      toast.success("Shipment recorded in database successfully!");
+      setNewForm({
+        dealName: "",
+        carrier: "Maersk Line",
+        origin: "",
+        destination: "",
+        eta: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+        status: "Booking Confirmed",
+        mode: "Ocean Freight",
+        cost: "₹10,00,000",
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create shipment");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      await updateShipmentStatus(id, status);
+      setShipments(shipments.map((s) => (s.id === id ? { ...s, status } : s)));
+      toast.success(`Updated shipment status to "${status}"`);
+    } catch (err: any) {
+      toast.error("Failed to update status");
+    }
   };
 
   const filtered = shipments.filter(

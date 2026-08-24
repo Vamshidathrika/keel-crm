@@ -6,70 +6,71 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { createOrder, updateOrderStatus } from "@/app/actions/orders";
+import { toast } from "sonner";
+
 interface OrdersClientProps {
   user: any;
+  initialOrders?: any[];
 }
 
-const INITIAL_ORDERS = [
-  {
-    id: "ORD-701",
-    customer: "Harish Rao",
-    items: "Premium Leather Jacket x1, Cotton Chinos x2",
-    amount: "₹12,499",
-    status: "Delivered",
-    clvScore: "Hot (Top 5%)",
-    date: "2026-07-15",
-  },
-  {
-    id: "ORD-702",
-    customer: "Prathyusha K.",
-    items: "Smart Noise-canceling Earbuds x1",
-    amount: "₹4,200",
-    status: "In Transit",
-    clvScore: "Warm",
-    date: "2026-07-16",
-  },
-  {
-    id: "ORD-703",
-    customer: "Devashish Sen",
-    items: "Ergonomic Office Chair V2 x1",
-    amount: "₹18,900",
-    status: "Fulfillment",
-    clvScore: "Hot (Top 10%)",
-    date: "2026-07-17",
-  },
-];
-
-export default function OrdersClient({ user }: OrdersClientProps) {
-  const [orders, setOrders] = useState(INITIAL_ORDERS);
+export default function OrdersClient({ user, initialOrders = [] }: OrdersClientProps) {
+  const [orders, setOrders] = useState(initialOrders);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [newForm, setNewForm] = useState({
     customer: "",
-    items: "",
-    amount: "",
+    items: "Standard Enterprise Package",
+    amount: "₹45,000",
     status: "Fulfillment",
-    clvScore: "Warm",
-    date: new Date().toISOString().split("T")[0],
+    clvScore: "Hot (Top 10%)",
+    date: new Date().toISOString().slice(0, 10),
   });
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.customer || !newForm.items || !newForm.amount) return;
-    const newOrd = {
-      id: `ORD-${Math.floor(700 + Math.random() * 300)}`,
-      ...newForm,
-    };
-    setOrders([newOrd, ...orders]);
-    setShowAdd(false);
-    setNewForm({
-      customer: "",
-      items: "",
-      amount: "",
-      status: "Fulfillment",
-      clvScore: "Warm",
-      date: new Date().toISOString().split("T")[0],
-    });
+    if (!newForm.customer || !newForm.items || !newForm.amount) {
+      toast.error("Please fill in customer, items and amount.");
+      return;
+    }
+    setIsPending(true);
+    try {
+      const created = await createOrder({
+        clientName: newForm.customer,
+        itemsSummary: newForm.items,
+        totalAmount: newForm.amount,
+        fulfillmentStatus: newForm.status,
+      });
+      setOrders([
+        {
+          id: created.orderNumber,
+          customer: created.clientName,
+          items: created.itemsSummary,
+          amount: created.totalAmount,
+          status: created.fulfillmentStatus,
+          clvScore: newForm.clvScore,
+          date: created.createdAt ? new Date(created.createdAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+        },
+        ...orders,
+      ]);
+      setShowAdd(false);
+      toast.success("Order recorded in database successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create order");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      await updateOrderStatus(id, status);
+      setOrders(orders.map((o) => (o.id === id ? { ...o, status } : o)));
+      toast.success(`Updated order status to "${status}"`);
+    } catch (err: any) {
+      toast.error("Failed to update order status");
+    }
   };
 
   const filtered = orders.filter(

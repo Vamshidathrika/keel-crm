@@ -6,65 +6,59 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { createKycRecord, updateKycStatus } from "@/app/actions/kyc";
+import { toast } from "sonner";
+
 interface KycClientProps {
   user: any;
+  initialRecords?: any[];
 }
 
-const INITIAL_KYC_RECORDS = [
-  {
-    id: "KYC-901",
-    customer: "Vamsi Krishna",
-    docType: "PAN Card + Aadhaar",
-    complianceStatus: "Approved",
-    regulatoryLogs: "SEBI Compliance verified on 2026-07-12",
-    updatedAt: "2026-07-12",
-  },
-  {
-    id: "KYC-902",
-    customer: "Meenakshi Exports Ltd.",
-    docType: "Corporate GSTIN + MOA",
-    complianceStatus: "Pending Review",
-    regulatoryLogs: "Uploaded on 2026-07-16, awaiting audit",
-    updatedAt: "2026-07-16",
-  },
-  {
-    id: "KYC-903",
-    customer: "Ramanathan Iyer",
-    docType: "Passport Verification",
-    complianceStatus: "Rejected",
-    regulatoryLogs: "Image resolution low. Re-request dispatched",
-    updatedAt: "2026-07-10",
-  },
-];
-
-export default function KycClient({ user }: KycClientProps) {
-  const [kycRecords, setKycRecords] = useState(INITIAL_KYC_RECORDS);
+export default function KycClient({ user, initialRecords = [] }: KycClientProps) {
+  const [kycRecords, setKycRecords] = useState(initialRecords);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [newForm, setNewForm] = useState({
     customer: "",
     docType: "PAN Card + Aadhaar",
     complianceStatus: "Pending Review",
     regulatoryLogs: "New document uploaded. Awaiting compliance validation.",
-    updatedAt: new Date().toISOString().split("T")[0],
   });
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.customer || !newForm.docType) return;
-    const newKyc = {
-      id: `KYC-${Math.floor(900 + Math.random() * 100)}`,
-      ...newForm,
-    };
-    setKycRecords([newKyc, ...kycRecords]);
-    setShowAdd(false);
-    setNewForm({
-      customer: "",
-      docType: "PAN Card + Aadhaar",
-      complianceStatus: "Pending Review",
-      regulatoryLogs: "New document uploaded. Awaiting compliance validation.",
-      updatedAt: new Date().toISOString().split("T")[0],
-    });
+    if (!newForm.customer || !newForm.docType) {
+      toast.error("Customer name and document type required.");
+      return;
+    }
+    setIsPending(true);
+    try {
+      const created = await createKycRecord(newForm);
+      setKycRecords([created, ...kycRecords]);
+      setShowAdd(false);
+      toast.success("KYC record stored in database successfully!");
+      setNewForm({
+        customer: "",
+        docType: "PAN Card + Aadhaar",
+        complianceStatus: "Pending Review",
+        regulatoryLogs: "New document uploaded. Awaiting compliance validation.",
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create KYC record");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      await updateKycStatus(id, status, `Status changed to ${status} on ${new Date().toISOString().slice(0, 10)}`);
+      setKycRecords(kycRecords.map((k) => (k.id === id ? { ...k, complianceStatus: status } : k)));
+      toast.success(`Updated compliance status to "${status}"`);
+    } catch (err: any) {
+      toast.error("Failed to update status");
+    }
   };
 
   const filtered = kycRecords.filter(

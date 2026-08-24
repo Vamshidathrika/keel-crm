@@ -6,70 +6,72 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { createAppointment, updateAppointmentStatus } from "@/app/actions/appointments";
+import { toast } from "sonner";
+
 interface AppointmentsClientProps {
   user: any;
+  initialAppointments?: any[];
 }
 
-const INITIAL_APPOINTMENTS = [
-  {
-    id: "APT-201",
-    patientName: "Rajesh Y.",
-    provider: "Dr. K. Srinivas (Cardiology)",
-    dateTime: "2026-07-20T10:30",
-    status: "Scheduled",
-    hipaaConsent: true,
-    referralSource: "Apollo General Clinic",
-  },
-  {
-    id: "APT-202",
-    patientName: "Anitha Chenoy",
-    provider: "Dr. L. Prathyusha (Pediatrics)",
-    dateTime: "2026-07-18T14:15",
-    status: "Completed",
-    hipaaConsent: true,
-    referralSource: "Website Portal",
-  },
-  {
-    id: "APT-203",
-    patientName: "Vikram Malhotra",
-    provider: "Dr. K. Srinivas (Cardiology)",
-    dateTime: "2026-07-22T09:00",
-    status: "Requested",
-    hipaaConsent: false,
-    referralSource: "Dr. Malhotra (Self Referral)",
-  },
-];
-
-export default function AppointmentsClient({ user }: AppointmentsClientProps) {
-  const [appointments, setAppointments] = useState(INITIAL_APPOINTMENTS);
+export default function AppointmentsClient({ user, initialAppointments = [] }: AppointmentsClientProps) {
+  const [appointments, setAppointments] = useState(initialAppointments);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [newForm, setNewForm] = useState({
     patientName: "",
-    provider: "",
-    dateTime: "",
+    provider: "Dr. A. Sharma (General Medicine)",
+    dateTime: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 16),
     status: "Scheduled",
     hipaaConsent: true,
-    referralSource: "",
+    referralSource: "Direct Intake",
   });
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newForm.patientName || !newForm.provider || !newForm.dateTime) return;
-    const newApt = {
-      id: `APT-${Math.floor(200 + Math.random() * 800)}`,
-      ...newForm,
-    };
-    setAppointments([newApt, ...appointments]);
-    setShowAdd(false);
-    setNewForm({
-      patientName: "",
-      provider: "",
-      dateTime: "",
-      status: "Scheduled",
-      hipaaConsent: true,
-      referralSource: "",
-    });
+    if (!newForm.patientName || !newForm.provider || !newForm.dateTime) {
+      toast.error("Please fill in patient name, provider and date/time.");
+      return;
+    }
+    setIsPending(true);
+    try {
+      const created = await createAppointment({
+        clientName: newForm.patientName,
+        serviceType: newForm.provider,
+        dateTime: newForm.dateTime,
+        status: newForm.status,
+        notes: `Referral: ${newForm.referralSource} | HIPAA: ${newForm.hipaaConsent ? "Yes" : "No"}`,
+      });
+      setAppointments([
+        {
+          id: created.id,
+          patientName: created.clientName,
+          provider: created.serviceType,
+          dateTime: created.dateTime,
+          status: created.status,
+          hipaaConsent: true,
+          referralSource: newForm.referralSource,
+        },
+        ...appointments,
+      ]);
+      setShowAdd(false);
+      toast.success("Appointment scheduled and saved to database!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create appointment");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      await updateAppointmentStatus(id, status);
+      setAppointments(appointments.map((a) => (a.id === id ? { ...a, status } : a)));
+      toast.success(`Updated status to "${status}"`);
+    } catch (err: any) {
+      toast.error("Failed to update status");
+    }
   };
 
   const filtered = appointments.filter(
