@@ -174,14 +174,19 @@ export async function POST(req: Request) {
 
     // 6. Schedule Background AI Pass (Fire and Forget using Next.js after())
     if (transcript && transcript.trim()) {
-      after(async () => {
-        try {
-          console.log(`Scheduling conversation intelligence for contact ${matchedContact!.id}`);
-          await analyzeTranscript(matchedContact!.id, transcript);
-        } catch (err) {
-          console.error("Background AI analyze transcript failed:", err);
-        }
-      });
+      try {
+        after(async () => {
+          try {
+            console.log(`Scheduling conversation intelligence for contact ${matchedContact!.id}`);
+            await analyzeTranscript(matchedContact!.id, transcript);
+          } catch (err) {
+            console.error("Background AI analyze transcript failed:", err);
+          }
+        });
+      } catch {
+        // Standalone/direct invocation fallback
+        analyzeTranscript(matchedContact!.id, transcript).catch(() => {});
+      }
     }
 
     return NextResponse.json({

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { notifications } from "@/db/schema";
+import { notifications, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { authenticateApiKey } from "@/lib/api/auth";
 
@@ -45,11 +45,17 @@ export async function POST(req: Request) {
 
     const orgId = authResult.orgId!;
 
+    let targetUserId = userId || null;
+    if (!targetUserId) {
+      const defaultUser = await db.query.users.findFirst({ where: eq(users.orgId, orgId) });
+      targetUserId = defaultUser?.id || null;
+    }
+
     const [newNotif] = await db
       .insert(notifications)
       .values({
         orgId,
-        userId: userId || null,
+        userId: targetUserId,
         title: title.trim(),
         body: notifBody.trim(),
         type,
