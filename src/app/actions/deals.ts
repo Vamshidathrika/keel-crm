@@ -8,6 +8,7 @@ import { logAuditEntry } from "@/lib/audit";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { triggerWorkflows } from "@/app/actions/automations";
+import { runDealDoctorAgent } from "@/lib/agents/deal-doctor";
 
 export async function getDeals(pipelineId?: string) {
   const session = await auth();
@@ -97,6 +98,11 @@ export async function createDeal(data: {
     title: deal.title,
     value: deal.value,
   });
+
+  // Autonomous Deal Doctor Trigger
+  runDealDoctorAgent(orgId, deal.id, "event").catch((err) =>
+    console.error("Deal Doctor trigger error:", err)
+  );
 
   revalidatePath("/dashboard/deals");
   return deal;
@@ -220,6 +226,11 @@ export async function updateDeal(
       companyId: deal.companyId,
       ownerId: deal.ownerId,
     });
+
+    // Autonomous Deal Doctor Trigger
+    runDealDoctorAgent(orgId, id, "event").catch((err) =>
+      console.error("Deal Doctor trigger error:", err)
+    );
   }
 
   revalidatePath("/dashboard/deals");

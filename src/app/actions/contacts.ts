@@ -8,6 +8,7 @@ import { logAuditEntry } from "@/lib/audit";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { triggerWorkflows } from "@/app/actions/automations";
+import { runProspectorAgent } from "@/lib/agents/prospector";
 
 export async function getContacts() {
   const session = await auth();
@@ -110,6 +111,11 @@ export async function createContact(data: {
     companyId: contact.companyId,
     ownerId: contact.ownerId,
   });
+
+  // Autonomous Prospector Agent Trigger
+  runProspectorAgent(orgId, "contact", contact.id, "event").catch((err) =>
+    console.error("Prospector trigger error:", err)
+  );
 
   revalidatePath("/dashboard/contacts");
   return contact;

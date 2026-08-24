@@ -799,6 +799,222 @@ export const deliverablesRelations = relations(deliverables, ({ one }) => ({
   project: one(projects, { fields: [deliverables.projectId], references: [projects.id] }),
 }));
 
+// ---------- Autonomous Agentic CRM Tables ----------
+
+export const agentConfigs = sqliteTable(
+  "agent_configs",
+  {
+    id: id("agcfg"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    agentType: text("agent_type", {
+      enum: ["prospector", "deal_doctor", "guardian", "briefing"],
+    }).notNull(),
+    isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
+    executionMode: text("execution_mode", { enum: ["full_auto", "supervised"] }).notNull().default("supervised"),
+    model: text("model").notNull().default("gemini-2.5-flash"),
+    sweepIntervalHours: integer("sweep_interval_hours").notNull().default(24),
+    lastSweepAt: text("last_sweep_at"),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("agent_configs_org_agent_idx").on(t.orgId, t.agentType)]
+);
+
+export const agentRuns = sqliteTable(
+  "agent_runs",
+  {
+    id: id("agrun"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    agentType: text("agent_type").notNull(),
+    targetEntityType: text("target_entity_type", { enum: ["contact", "company", "deal", "org"] }).notNull(),
+    targetEntityId: text("target_entity_id").notNull(),
+    status: text("status", { enum: ["running", "completed", "failed", "requires_approval"] }).notNull(),
+    confidenceScore: real("confidence_score").notNull().default(0.85),
+    thoughtProcess: text("thought_process", { mode: "json" }).$type<string[]>().notNull().default([]),
+    summary: text("summary").notNull(),
+    toolsInvoked: text("tools_invoked", { mode: "json" }).$type<Array<{ tool: string; params: any; result: any }>>().notNull().default([]),
+    executionDurationMs: integer("execution_duration_ms"),
+    createdAt: text("created_at").notNull().default(sql`(current_timestamp)`),
+  },
+  (t) => [
+    index("agent_runs_org_idx").on(t.orgId),
+    index("agent_runs_target_idx").on(t.targetEntityType, t.targetEntityId),
+  ]
+);
+
+export const agentActionQueue = sqliteTable(
+  "agent_action_queue",
+  {
+    id: id("agact"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    runId: text("run_id").references(() => agentRuns.id, { onDelete: "set null" }),
+    agentType: text("agent_type").notNull(),
+    severity: text("severity", { enum: ["info", "warning", "critical"] }).notNull().default("info"),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    actionType: text("action_type", {
+      enum: ["create_task", "update_deal_health", "adjust_probability", "draft_proposal", "tag_entity", "reassign_owner", "custom"],
+    }).notNull(),
+    actionPayload: text("action_payload", { mode: "json" }).$type<Record<string, any>>().notNull().default({}),
+    status: text("status", { enum: ["pending", "approved", "rejected", "executed"] }).notNull().default("pending"),
+    reviewedById: text("reviewed_by_id").references(() => users.id),
+    reviewedAt: text("reviewed_at"),
+    rejectionReason: text("rejection_reason"),
+    createdAt: text("created_at").notNull().default(sql`(current_timestamp)`),
+  },
+  (t) => [
+    index("agent_action_queue_org_idx").on(t.orgId),
+    index("agent_action_queue_status_idx").on(t.orgId, t.status),
+  ]
+);
+
+export const agentMemories = sqliteTable(
+  "agent_memories",
+  {
+    id: id("agmem"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    entityType: text("entity_type", { enum: ["contact", "company", "deal", "org"] }).notNull(),
+    entityId: text("entity_id").notNull(),
+    key: text("key").notNull(),
+    value: text("value", { mode: "json" }).$type<any>().notNull(),
+    confidence: real("confidence").notNull().default(1.0),
+    sourceAgent: text("source_agent").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("agent_memories_entity_key_idx").on(t.orgId, t.entityType, t.entityId, t.key),
+  ]
+);
+
+// ---------- Vertical Specific Persistent Tables ----------
+
+export const shipments = sqliteTable(
+  "shipments",
+  {
+    id: id("shp"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    dealId: text("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    dealName: text("deal_name").notNull(),
+    carrier: text("carrier").notNull(),
+    origin: text("origin").notNull(),
+    destination: text("destination").notNull(),
+    eta: text("eta").notNull(),
+    status: text("status").notNull().default("Booking Confirmed"),
+    mode: text("mode").notNull().default("Ocean Freight"),
+    cost: text("cost").notNull().default("0"),
+    ...timestamps,
+  },
+  (t) => [index("shipments_org_idx").on(t.orgId)]
+);
+
+export const kycRecords = sqliteTable(
+  "kyc_records",
+  {
+    id: id("kyc"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    customer: text("customer").notNull(),
+    docType: text("doc_type").notNull(),
+    complianceStatus: text("compliance_status").notNull().default("Pending Review"),
+    regulatoryLogs: text("regulatory_logs"),
+    ...timestamps,
+  },
+  (t) => [index("kyc_records_org_idx").on(t.orgId)]
+);
+
+export const appointments = sqliteTable(
+  "appointments",
+  {
+    id: id("apt"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    clientName: text("client_name").notNull(),
+    serviceType: text("service_type").notNull(),
+    dateTime: text("date_time").notNull(),
+    status: text("status").notNull().default("Scheduled"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (t) => [index("appointments_org_idx").on(t.orgId)]
+);
+
+export const orders = sqliteTable(
+  "orders",
+  {
+    id: id("ord"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    clientId: text("client_id").references(() => clients.id, { onDelete: "set null" }),
+    orderNumber: text("order_number").notNull(),
+    clientName: text("client_name").notNull(),
+    itemsSummary: text("items_summary").notNull(),
+    totalAmount: text("total_amount").notNull(),
+    fulfillmentStatus: text("fulfillment_status").notNull().default("Processing"),
+    deliveryEta: text("delivery_eta"),
+    ...timestamps,
+  },
+  (t) => [index("orders_org_idx").on(t.orgId)]
+);
+
+export const properties = sqliteTable(
+  "properties",
+  {
+    id: id("prp"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    location: text("location").notNull(),
+    price: text("price").notNull(),
+    type: text("type").notNull().default("Commercial"),
+    status: text("status").notNull().default("Available"),
+    buyerOrTenant: text("buyer_or_tenant"),
+    ...timestamps,
+  },
+  (t) => [index("properties_org_idx").on(t.orgId)]
+);
+
+// ---------- Relations for Agent & Vertical Tables ----------
+
+export const agentConfigsRelations = relations(agentConfigs, ({ one }) => ({
+  org: one(organizations, { fields: [agentConfigs.orgId], references: [organizations.id] }),
+}));
+
+export const agentRunsRelations = relations(agentRuns, ({ one, many }) => ({
+  org: one(organizations, { fields: [agentRuns.orgId], references: [organizations.id] }),
+  actions: many(agentActionQueue),
+}));
+
+export const agentActionQueueRelations = relations(agentActionQueue, ({ one }) => ({
+  org: one(organizations, { fields: [agentActionQueue.orgId], references: [organizations.id] }),
+  run: one(agentRuns, { fields: [agentActionQueue.runId], references: [agentRuns.id] }),
+  reviewedBy: one(users, { fields: [agentActionQueue.reviewedById], references: [users.id] }),
+}));
+
+export const agentMemoriesRelations = relations(agentMemories, ({ one }) => ({
+  org: one(organizations, { fields: [agentMemories.orgId], references: [organizations.id] }),
+}));
+
+export const shipmentsRelations = relations(shipments, ({ one }) => ({
+  org: one(organizations, { fields: [shipments.orgId], references: [organizations.id] }),
+  deal: one(deals, { fields: [shipments.dealId], references: [deals.id] }),
+}));
+
+export const kycRecordsRelations = relations(kycRecords, ({ one }) => ({
+  org: one(organizations, { fields: [kycRecords.orgId], references: [organizations.id] }),
+  contact: one(contacts, { fields: [kycRecords.contactId], references: [contacts.id] }),
+}));
+
+export const appointmentsRelations = relations(appointments, ({ one }) => ({
+  org: one(organizations, { fields: [appointments.orgId], references: [organizations.id] }),
+  contact: one(contacts, { fields: [appointments.contactId], references: [contacts.id] }),
+}));
+
+export const ordersRelations = relations(orders, ({ one }) => ({
+  org: one(organizations, { fields: [orders.orgId], references: [organizations.id] }),
+  client: one(clients, { fields: [orders.clientId], references: [clients.id] }),
+}));
+
+export const propertiesRelations = relations(properties, ({ one }) => ({
+  org: one(organizations, { fields: [properties.orgId], references: [organizations.id] }),
+}));
+
 export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Company = typeof companies.$inferSelect;
@@ -823,4 +1039,16 @@ export type FollowUp = typeof followups.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type ProjectTask = typeof projectTasks.$inferSelect;
 export type Deliverable = typeof deliverables.$inferSelect;
+
+export type AgentConfig = typeof agentConfigs.$inferSelect;
+export type AgentRun = typeof agentRuns.$inferSelect;
+export type AgentActionItem = typeof agentActionQueue.$inferSelect;
+export type AgentMemory = typeof agentMemories.$inferSelect;
+
+export type Shipment = typeof shipments.$inferSelect;
+export type KycRecord = typeof kycRecords.$inferSelect;
+export type Appointment = typeof appointments.$inferSelect;
+export type Order = typeof orders.$inferSelect;
+export type Property = typeof properties.$inferSelect;
+
 

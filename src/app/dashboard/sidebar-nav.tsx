@@ -21,6 +21,8 @@ import {
   FileText,
   Package,
   MessageCircle,
+  Bot,
+  Sparkles,
 } from "lucide-react";
 import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
 
@@ -51,11 +53,13 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
 
-  // Overview — always at top
+  // Overview & Agent Hub — always at top
   const overviewLink = { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true };
+  const agentHubLink = { href: "/dashboard/agent-hub", label: "Agent Control Hub", icon: Bot };
 
   // Business OS group links
   const businessOsLinks = [
+    { href: "/dashboard/agent-hub", label: "Agent Control Hub", icon: Bot },
     { href: "/dashboard/deals", label: "CRM & Leads", icon: DollarSign },
     { href: "/dashboard/business-os?tab=sales", label: "Sales & Invoices", icon: FileText, tab: "sales" },
     { href: "/dashboard/business-os?tab=inbox", label: "Inbox & Followups", icon: MessageCircle, tab: "inbox" },
