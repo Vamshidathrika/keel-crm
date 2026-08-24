@@ -73,7 +73,7 @@ export async function executeWaterfallEnrichment(
   // Tier 3: Gemini 2.5 AI Synthesis & Dossier Generation
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   let summary = `${companyName || domain} operates in ${detectedIndustry}. Account matches ${icpFit} criteria.`;
-  let suggestedHook = `Reach out regarding workflow automation opportunities tailored for ${detectedIndustry}.`;
+  const suggestedHook = `Reach out regarding workflow automation opportunities tailored for ${detectedIndustry}.`;
   let tierReached: 1 | 2 | 3 = 2;
 
   if (apiKey && apiKey !== "YOUR_GEMINI_API_KEY") {

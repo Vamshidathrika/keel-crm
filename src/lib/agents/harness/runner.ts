@@ -89,7 +89,7 @@ export async function executeAgentHarness(params: RunAgentParams): Promise<Agent
   const isRealApiKey = apiKey && apiKey !== "YOUR_GEMINI_API_KEY";
 
   let finalSummary = "";
-  let confidenceScore = 0.92;
+  const confidenceScore = 0.92;
 
   if (isRealApiKey) {
     try {

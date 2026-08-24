@@ -41,6 +41,8 @@ import * as duplicatesRoute from "../src/app/api/v1/duplicates/route";
 import * as apiKeysRoute from "../src/app/api/v1/apikeys/route";
 import * as openapiRoute from "../src/app/api/v1/openapi.json/route";
 import * as exportRoute from "../src/app/api/v1/export/route";
+import * as billingSubscriptionsRoute from "../src/app/api/v1/billing/subscriptions/route";
+import * as stripeWebhookRoute from "../src/app/api/webhooks/stripe/route";
 
 // Import AI routes
 import * as aiInsightsRoute from "../src/app/api/ai/business-insights/route";
@@ -260,6 +262,32 @@ async function main() {
   );
   await testEndpoint("GET /api/v1/followups (List Follow-ups)", () =>
     followupsRoute.GET(createReq("http://localhost/api/v1/followups?limit=5", "GET", rawTestKey))
+  );
+  await testEndpoint("GET /api/v1/billing/subscriptions (SaaS Plan & Seats)", () =>
+    billingSubscriptionsRoute.GET(createReq("http://localhost/api/v1/billing/subscriptions", "GET", rawTestKey))
+  );
+  await testEndpoint("POST /api/v1/billing/subscriptions (Upgrade Plan to Growth)", () =>
+    billingSubscriptionsRoute.POST(createReq("http://localhost/api/v1/billing/subscriptions", "POST", rawTestKey, {
+      plan: "growth",
+      isAnnual: true,
+    })), 200
+  );
+  await testEndpoint("POST /api/webhooks/stripe (Stripe Webhook Handler)", () =>
+    stripeWebhookRoute.POST(new Request("http://localhost/api/webhooks/stripe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "checkout.session.completed",
+        data: {
+          object: {
+            client_reference_id: org.id,
+            customer: "cus_mock_123",
+            subscription: "sub_mock_123",
+            metadata: { planKey: "growth", orgId: org.id },
+          },
+        },
+      }),
+    })), 200
   );
 
   // --- Module 3: Autonomous AI Agents & Memory ---

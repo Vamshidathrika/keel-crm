@@ -61,6 +61,7 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
   const businessOsLinks = [
     { href: "/dashboard/agent-hub", label: "Agent Control Hub", icon: Bot },
     { href: "/dashboard/deals", label: "CRM & Leads", icon: DollarSign },
+    { href: "/dashboard/products", label: "Products & Catalog", icon: Package },
     { href: "/dashboard/business-os?tab=sales", label: "Sales & Invoices", icon: FileText, tab: "sales" },
     { href: "/dashboard/business-os?tab=inbox", label: "Inbox & Followups", icon: MessageCircle, tab: "inbox" },
     { href: "/dashboard/business-os?tab=projects", label: "Projects & Portal", icon: Briefcase, tab: "projects" },
@@ -175,6 +176,27 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
         <div className="my-2 border-t border-border/60" />
       )}
 
+      {/* Billing & Subscriptions */}
+      {(() => {
+        const billingLink = { href: "/dashboard/billing", label: "Billing & Plans", icon: CreditCard };
+        const Icon = billingLink.icon;
+        const isActive = pathname === billingLink.href;
+        return (
+          <Link
+            href={billingLink.href}
+            className={cn(
+              "flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-md transition-colors",
+              isActive
+                ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <Icon className="w-3.5 h-3.5 shrink-0" />
+            {billingLink.label}
+          </Link>
+        );
+      })()}
+
       {/* Settings — always at bottom */}
       {(() => {
         const Icon = settingsLink.icon;
@@ -183,13 +205,13 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
           <Link
             href={settingsLink.href}
             className={cn(
-              "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+              "flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md transition-colors",
               isActive
-                ? "bg-primary text-primary-foreground"
+                ? "bg-primary text-primary-foreground font-bold shadow-sm"
                 : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             )}
           >
-            <Icon className="w-4 h-4 shrink-0" />
+            <Icon className="w-3.5 h-3.5 shrink-0" />
             {settingsLink.label}
           </Link>
         );

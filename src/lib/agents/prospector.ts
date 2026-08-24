@@ -24,7 +24,7 @@ export async function runProspectorAgent(
   thoughtProcess.push(`[Discovery] Initiating Prospector agent for ${targetType} #${targetId} (Source: ${triggerSource}, Mode: ${executionMode}).`);
 
   let summary = "";
-  let confidenceScore = 0.9;
+  const confidenceScore = 0.9;
 
   if (targetType === "company") {
     const company = await db.query.companies.findFirst({

@@ -54,6 +54,8 @@ type Deal = {
   probability: number;
   healthFlags: string[];
   source: string;
+  lostReason?: string | null;
+  lostReasonNotes?: string | null;
   closedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -135,6 +137,14 @@ export default function DealsClient({
   const [newPipelineName, setNewPipelineName] = useState("");
   const [newPipelineDefault, setNewPipelineDefault] = useState(false);
   const [pipelineCreating, setPipelineCreating] = useState(false);
+
+  // Lost Reason Modal states
+  const [showLostReasonDialog, setShowLostReasonDialog] = useState(false);
+  const [pendingLostDealId, setPendingLostDealId] = useState<string | null>(null);
+  const [pendingLostStageId, setPendingLostStageId] = useState<string | null>(null);
+  const [selectedLostReason, setSelectedLostReason] = useState("Price too high");
+  const [lostReasonNotes, setLostReasonNotes] = useState("");
+  const [savingLostReason, setSavingLostReason] = useState(false);
 
   // Detail Sheet timeline refresh
   const [timelineRefresh, setTimelineRefresh] = useState(0);
@@ -349,19 +359,32 @@ export default function DealsClient({
     }
   };
 
-  const handleMoveStage = async (dealId: string, nextStageId: string) => {
+  const handleMoveStage = async (dealId: string, nextStageId: string, customReason?: string, customNotes?: string) => {
     const activeDeal = deals.find((d) => d.id === dealId);
     if (!activeDeal || activeDeal.stageId === nextStageId) return;
 
+    const targetStage = activePipeline?.stages.find((s) => s.id === nextStageId);
+    
+    // Intercept if moving to a "lost" stage without a reason
+    if (targetStage?.type === "lost" && !customReason && !activeDeal.lostReason) {
+      setPendingLostDealId(dealId);
+      setPendingLostStageId(nextStageId);
+      setSelectedLostReason("Price too high");
+      setLostReasonNotes("");
+      setShowLostReasonDialog(true);
+      return;
+    }
+
     // Optimistic update
     const previousDeals = [...deals];
-    const targetStage = activePipeline?.stages.find((s) => s.id === nextStageId);
     
     const updatedLocal = deals.map((d) => {
       if (d.id === dealId) {
         return {
           ...d,
           stageId: nextStageId,
+          lostReason: customReason || (targetStage?.type === "lost" ? d.lostReason : null),
+          lostReasonNotes: customNotes || (targetStage?.type === "lost" ? d.lostReasonNotes : null),
           stage: targetStage ? { id: targetStage.id, name: targetStage.name, type: targetStage.type, color: targetStage.color } : d.stage,
         };
       }
@@ -370,17 +393,43 @@ export default function DealsClient({
     setDeals(updatedLocal);
 
     try {
-      const res = await updateDeal(dealId, { stageId: nextStageId });
+      await updateDeal(dealId, {
+        stageId: nextStageId,
+        ...(customReason ? { lostReason: customReason } : {}),
+        ...(customNotes ? { lostReasonNotes: customNotes } : {}),
+      });
       toast.success(`Deal moved to ${targetStage?.name || "new stage"}`);
       
       // Update selected deal detail sheet if it matches
       if (selectedDeal?.id === dealId) {
-        const fullUpdated = { ...selectedDeal, stageId: nextStageId, stage: targetStage || selectedDeal.stage };
+        const fullUpdated = {
+          ...selectedDeal,
+          stageId: nextStageId,
+          lostReason: customReason || (targetStage?.type === "lost" ? selectedDeal.lostReason : null),
+          lostReasonNotes: customNotes || (targetStage?.type === "lost" ? selectedDeal.lostReasonNotes : null),
+          stage: targetStage || selectedDeal.stage,
+        };
         setSelectedDeal(fullUpdated);
       }
     } catch (err: any) {
       setDeals(previousDeals);
       toast.error(err.message || "Failed to update deal stage");
+    }
+  };
+
+  const handleSaveLostReason = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingLostDealId || !pendingLostStageId) return;
+
+    setSavingLostReason(true);
+    try {
+      await handleMoveStage(pendingLostDealId, pendingLostStageId, selectedLostReason, lostReasonNotes.trim() || undefined);
+      setShowLostReasonDialog(false);
+      setPendingLostDealId(null);
+      setPendingLostStageId(null);
+      toast.success("Lost reason recorded.");
+    } finally {
+      setSavingLostReason(false);
     }
   };
 
@@ -678,6 +727,14 @@ export default function DealsClient({
                         </p>
                       )}
 
+                      {d.lostReason && (
+                        <div className="mt-1.5">
+                          <span className="text-[9px] bg-destructive/10 text-destructive border border-destructive/20 px-1.5 py-0.5 rounded font-medium inline-block truncate max-w-full">
+                            Lost: {d.lostReason}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-2 text-[10px]">
                         <span className="font-mono text-foreground font-semibold">
                           ₹{d.value.toLocaleString("en-IN")}
@@ -840,6 +897,120 @@ export default function DealsClient({
           </div>
         </Card>
       )}
+
+      {/* New Pipeline Modal */}
+      <Dialog open={showNewPipelineDialog} onOpenChange={setShowNewPipelineDialog}>
+        <DialogContent className="sm:max-w-md border border-border bg-card">
+          <DialogHeader>
+            <DialogTitle>Add New Sales Pipeline</DialogTitle>
+            <DialogDescription>
+              Create a new sales process with custom or standard stages (e.g. Outbound, Inbound, Upsells, Partners).
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddPipeline} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="pipeline-name">Pipeline Name *</Label>
+              <Input
+                id="pipeline-name"
+                value={newPipelineName}
+                onChange={(e) => setNewPipelineName(e.target.value)}
+                placeholder="e.g. Enterprise Outbound Sales"
+                disabled={pipelineCreating}
+                required
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="pipeline-default"
+                checked={newPipelineDefault}
+                onChange={(e) => setNewPipelineDefault(e.target.checked)}
+                className="rounded border-border"
+              />
+              <Label htmlFor="pipeline-default" className="text-xs text-muted-foreground cursor-pointer">
+                Set as default pipeline for new deals and automations
+              </Label>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowNewPipelineDialog(false)}
+                disabled={pipelineCreating}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pipelineCreating}>
+                {pipelineCreating ? "Creating..." : "Create Pipeline"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lost Reason Modal */}
+      <Dialog open={showLostReasonDialog} onOpenChange={setShowLostReasonDialog}>
+        <DialogContent className="sm:max-w-md border border-border bg-card">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5" /> Record Lost Reason
+            </DialogTitle>
+            <DialogDescription>
+              Why was this deal lost? Tracking lost reasons helps your sales team diagnose conversion blockers.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveLostReason} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="lost-reason-select">Primary Lost Reason *</Label>
+              <Select value={selectedLostReason} onValueChange={(val) => setSelectedLostReason(val as string)}>
+                <SelectTrigger className="bg-card border-border">
+                  <SelectValue placeholder="Select primary reason" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="Price too high">Price too high / Budget constraint</SelectItem>
+                  <SelectItem value="Selected competitor">Selected a competitor</SelectItem>
+                  <SelectItem value="Budget frozen / Bad timing">Budget frozen / Project postponed</SelectItem>
+                  <SelectItem value="Unresponsive / Ghosted">Client ghosted / Unresponsive</SelectItem>
+                  <SelectItem value="Feature gap / Technical blocker">Missing feature / Technical mismatch</SelectItem>
+                  <SelectItem value="Internal change / Champion left">Decision maker left / Restructuring</SelectItem>
+                  <SelectItem value="Other">Other / Miscellaneous</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="lost-reason-notes">Additional Context (Optional)</Label>
+              <Input
+                id="lost-reason-notes"
+                value={lostReasonNotes}
+                onChange={(e) => setLostReasonNotes(e.target.value)}
+                placeholder="e.g. Went with Vendor X due to lower seat pricing..."
+                disabled={savingLostReason}
+              />
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowLostReasonDialog(false);
+                  setPendingLostDealId(null);
+                  setPendingLostStageId(null);
+                }}
+                disabled={savingLostReason}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive" disabled={savingLostReason}>
+                {savingLostReason ? "Saving..." : "Mark as Lost"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Creation Modal */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -1651,6 +1822,20 @@ export default function DealsClient({
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Lost Reason Display in Sheet */}
+              {selectedDeal.lostReason && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-semibold text-destructive">
+                    <ShieldAlert className="w-4 h-4" /> Lost Reason: {selectedDeal.lostReason}
+                  </div>
+                  {selectedDeal.lostReasonNotes && (
+                    <p className="text-muted-foreground text-[11px]">
+                      {selectedDeal.lostReasonNotes}
+                    </p>
+                  )}
                 </div>
               )}
 

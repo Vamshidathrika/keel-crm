@@ -35,7 +35,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createStage, updateStage, deleteStage } from "@/app/actions/pipelines";
+import { createStage, updateStage, deleteStage, createPipeline, deletePipeline } from "@/app/actions/pipelines";
 import { inviteUser, updateUserRole, toggleUserStatus } from "@/app/actions/team";
 import { createApiKey, revokeApiKey } from "@/app/actions/apikeys";
 import { createWebhook, deleteWebhook, toggleWebhook } from "@/app/actions/webhooks";
@@ -59,6 +59,7 @@ type Stage = {
 type Pipeline = {
   id: string;
   name: string;
+  isDefault?: boolean;
   stages: Stage[];
 };
 
@@ -135,8 +136,14 @@ export default function SettingsClient({
   const isAdmin = currentUser.role === "admin";
   const isManager = currentUser.role === "manager";
 
+  const [pipelinesList, setPipelinesList] = useState<Pipeline[]>(pipelines);
   const [activePipeline, setActivePipeline] = useState<Pipeline | null>(pipelines[0] || null);
   const [stagesList, setStagesList] = useState<Stage[]>(activePipeline?.stages || []);
+
+  // Pipeline Management Modal states
+  const [showPipelineDialog, setShowPipelineDialog] = useState(false);
+  const [pipelineForm, setPipelineForm] = useState({ name: "", isDefault: false });
+  const [pipelineLoading, setPipelineLoading] = useState(false);
 
   const [team, setTeam] = useState<TeamMember[]>(initialTeam);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>(initialApiKeys);
@@ -257,6 +264,58 @@ export default function SettingsClient({
       toast.error(err.message || "Failed to invite user");
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  // Pipeline Switcher & CRUD logic
+  const handleSelectPipeline = (pipelineId: string) => {
+    const pipe = pipelinesList.find((p) => p.id === pipelineId) || null;
+    setActivePipeline(pipe);
+    setStagesList(pipe?.stages || []);
+  };
+
+  const handleCreatePipelineInSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pipelineForm.name.trim()) {
+      toast.error("Pipeline name is required");
+      return;
+    }
+    setPipelineLoading(true);
+    try {
+      const updatedPipes = await createPipeline(pipelineForm.name.trim(), pipelineForm.isDefault);
+      setPipelinesList(updatedPipes as Pipeline[]);
+      const newPipe = updatedPipes.find((p) => p.name === pipelineForm.name.trim()) || updatedPipes[updatedPipes.length - 1];
+      if (newPipe) {
+        setActivePipeline(newPipe as Pipeline);
+        setStagesList(newPipe.stages || []);
+      }
+      setShowPipelineDialog(false);
+      setPipelineForm({ name: "", isDefault: false });
+      toast.success("Pipeline created successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create pipeline");
+    } finally {
+      setPipelineLoading(false);
+    }
+  };
+
+  const handleDeletePipelineInSettings = async (pipelineId: string) => {
+    if (pipelinesList.length <= 1) {
+      toast.error("Cannot delete your only pipeline");
+      return;
+    }
+    if (!confirm("Are you sure you want to delete this pipeline and all its stages?")) return;
+
+    try {
+      const fallback = pipelinesList.find((p) => p.id !== pipelineId)?.id;
+      const updatedPipes = await deletePipeline(pipelineId, fallback);
+      setPipelinesList(updatedPipes as Pipeline[]);
+      const nextPipe = updatedPipes[0] || null;
+      setActivePipeline(nextPipe as Pipeline);
+      setStagesList(nextPipe?.stages || []);
+      toast.success("Pipeline deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete pipeline");
     }
   };
 
@@ -511,51 +570,104 @@ export default function SettingsClient({
         </TabsList>
 
         {/* Tab: Pipelines */}
-        <TabsContent value="pipelines">
+        <TabsContent value="pipelines" className="space-y-4">
           <Card className="border border-border bg-card">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <CardTitle className="text-sm font-bold">Sales Pipeline Stages</CardTitle>
+                <CardTitle className="text-sm font-bold">Sales Pipelines & Stages</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
-                  Define the sales funnel and close probabilities.
+                  Manage multiple sales pipelines, customize stages, and adjust win probabilities.
                 </CardDescription>
               </div>
+
               {(isAdmin || isManager) && (
-                <Button onClick={() => setShowStageDialog(true)} size="sm">
-                  <Plus className="w-4 h-4 mr-1" /> Add Stage
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button onClick={() => setShowPipelineDialog(true)} variant="outline" size="sm" className="text-xs gap-1">
+                    <Plus className="w-3.5 h-3.5" /> Add Pipeline
+                  </Button>
+                  <Button onClick={() => setShowStageDialog(true)} size="sm" className="text-xs gap-1" disabled={!activePipeline}>
+                    <Plus className="w-3.5 h-3.5" /> Add Stage
+                  </Button>
+                </div>
               )}
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {stagesList.map((st) => (
-                  <div
-                    key={st.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20 text-xs"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="w-4 h-4 rounded-full" style={{ backgroundColor: st.color }} />
-                      <span className="font-semibold text-foreground">{st.name}</span>
-                      <span className="text-[10px] text-muted-foreground capitalize">
-                        ({st.type} Stage)
-                      </span>
-                    </div>
 
-                    <div className="flex items-center gap-6">
-                      <div className="font-mono text-muted-foreground">
-                        Probability: <span className="text-foreground font-semibold">{st.probability}%</span>
-                      </div>
-                      {(isAdmin || isManager) && (
-                        <button
-                          onClick={() => handleDeleteStage(st.id)}
-                          className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+            <CardContent className="space-y-6">
+              {/* Pipeline Selector Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-foreground">Active Pipeline:</span>
+                  <Select
+                    value={activePipeline?.id || ""}
+                    onValueChange={(val) => val && handleSelectPipeline(val)}
+                  >
+                    <SelectTrigger className="w-52 h-8 bg-card border-border font-medium text-xs">
+                      <SelectValue placeholder="Select Pipeline" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {pipelinesList.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          <span className="font-medium">{p.name}</span>
+                          {p.isDefault && <span className="text-[10px] text-muted-foreground ml-1.5">(Default)</span>}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(isAdmin || isManager) && activePipeline && pipelinesList.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeletePipelineInSettings(activePipeline.id)}
+                    className="text-xs text-muted-foreground hover:text-destructive gap-1 h-8"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete This Pipeline
+                  </Button>
+                )}
+              </div>
+
+              {/* Stages List */}
+              <div className="space-y-2.5">
+                <h4 className="text-xs font-semibold text-foreground">
+                  Stages for "{activePipeline?.name || "Pipeline"}" ({stagesList.length} stages)
+                </h4>
+
+                {stagesList.length === 0 ? (
+                  <div className="p-6 text-center border border-dashed border-border rounded-lg text-muted-foreground text-xs">
+                    No stages found for this pipeline. Click "Add Stage" above to create one.
                   </div>
-                ))}
+                ) : (
+                  stagesList.map((st) => (
+                    <div
+                      key={st.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border bg-card text-xs shadow-xs"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: st.color }} />
+                        <span className="font-semibold text-foreground">{st.name}</span>
+                        <span className="text-[10px] text-muted-foreground capitalize">
+                          ({st.type} Stage)
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-6">
+                        <div className="font-mono text-muted-foreground">
+                          Probability: <span className="text-foreground font-semibold">{st.probability}%</span>
+                        </div>
+                        {(isAdmin || isManager) && (
+                          <button
+                            onClick={() => handleDeleteStage(st.id)}
+                            className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors"
+                            title="Delete stage"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1101,6 +1213,58 @@ export default function SettingsClient({
           <DialogFooter>
             <Button onClick={() => setGeneratedKey(null)}>Got it, Closed</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for Pipeline Creation */}
+      <Dialog open={showPipelineDialog} onOpenChange={setShowPipelineDialog}>
+        <DialogContent className="sm:max-w-md border border-border bg-card">
+          <DialogHeader>
+            <DialogTitle>Add New Sales Pipeline</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Create an independent sales pipeline with default funnel stages.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreatePipelineInSettings} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="pipeName">Pipeline Name *</Label>
+              <Input
+                id="pipeName"
+                value={pipelineForm.name}
+                onChange={(e) => setPipelineForm({ ...pipelineForm, name: e.target.value })}
+                placeholder="e.g. Inbound Enterprise"
+                disabled={pipelineLoading}
+                required
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="pipeDefault"
+                checked={pipelineForm.isDefault}
+                onChange={(e) => setPipelineForm({ ...pipelineForm, isDefault: e.target.checked })}
+                className="rounded border-border"
+              />
+              <Label htmlFor="pipeDefault" className="text-xs text-muted-foreground cursor-pointer">
+                Set as default organization pipeline
+              </Label>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowPipelineDialog(false)}
+                disabled={pipelineLoading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pipelineLoading}>
+                {pipelineLoading ? "Creating..." : "Create Pipeline"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

@@ -134,6 +134,8 @@ export const deals = sqliteTable(
     probability: integer("probability").notNull().default(10),
     healthFlags: text("health_flags", { mode: "json" }).$type<string[]>().notNull().default([]),
     source: text("source", { enum: ["manual", "import", "api_bridge", "ai"] }).notNull().default("manual"),
+    lostReason: text("lost_reason"),
+    lostReasonNotes: text("lost_reason_notes"),
     closedAt: text("closed_at"),
     ...timestamps,
   },
@@ -235,6 +237,30 @@ export const customFieldDefinitions = sqliteTable(
     order: integer("order").notNull().default(0),
   },
   (t) => [uniqueIndex("cfd_org_entity_key_idx").on(t.orgId, t.entityType, t.key)]
+);
+
+// ---------- SaaS Subscriptions & Billing Engine ----------
+
+export const subscriptions = sqliteTable(
+  "subscriptions",
+  {
+    id: id("sub"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    stripePriceId: text("stripe_price_id"),
+    plan: text("plan", { enum: ["starter", "growth", "enterprise"] }).notNull().default("starter"),
+    status: text("status", { enum: ["active", "trialing", "past_due", "canceled", "unpaid"] }).notNull().default("active"),
+    seatCount: integer("seat_count").notNull().default(5),
+    currentPeriodStart: text("current_period_start"),
+    currentPeriodEnd: text("current_period_end"),
+    cancelAtPeriodEnd: integer("cancel_at_period_end", { mode: "boolean" }).notNull().default(false),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("subscriptions_org_idx").on(t.orgId),
+    index("subscriptions_stripe_sub_idx").on(t.stripeSubscriptionId),
+  ]
 );
 
 // ---------- Integration bridge: API keys & Webhooks ----------
@@ -382,6 +408,21 @@ export const savedFilters = sqliteTable("saved_filters", {
 });
 
 // ---------- Relations ----------
+
+export const organizationsRelations = relations(organizations, ({ one, many }) => ({
+  subscription: one(subscriptions, {
+    fields: [organizations.id],
+    references: [subscriptions.orgId],
+  }),
+  users: many(users),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  org: one(organizations, {
+    fields: [subscriptions.orgId],
+    references: [organizations.id],
+  }),
+}));
 
 export const usersRelations = relations(users, ({ one }) => ({
   org: one(organizations, {
@@ -972,6 +1013,27 @@ export const properties = sqliteTable(
   (t) => [index("properties_org_idx").on(t.orgId)]
 );
 
+export const products = sqliteTable(
+  "products",
+  {
+    id: id("prod"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sku: text("sku"),
+    description: text("description"),
+    unitPrice: real("unit_price").notNull().default(0),
+    currency: text("currency").notNull().default("INR"),
+    taxRatePercent: real("tax_rate_percent").notNull().default(18),
+    category: text("category").notNull().default("Services"),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [
+    index("products_org_idx").on(t.orgId),
+    index("products_sku_idx").on(t.orgId, t.sku),
+  ]
+);
+
 // ---------- Relations for Agent & Vertical Tables ----------
 
 export const agentConfigsRelations = relations(agentConfigs, ({ one }) => ({
@@ -1017,6 +1079,10 @@ export const propertiesRelations = relations(properties, ({ one }) => ({
   org: one(organizations, { fields: [properties.orgId], references: [organizations.id] }),
 }));
 
+export const productsRelations = relations(products, ({ one }) => ({
+  org: one(organizations, { fields: [products.orgId], references: [organizations.id] }),
+}));
+
 export const customFieldDefinitionsRelations = relations(customFieldDefinitions, ({ one }) => ({
   org: one(organizations, { fields: [customFieldDefinitions.orgId], references: [organizations.id] }),
 }));
@@ -1056,6 +1122,7 @@ export type KycRecord = typeof kycRecords.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type Property = typeof properties.$inferSelect;
+export type Product = typeof products.$inferSelect;
 export type CustomFieldDefinition = typeof customFieldDefinitions.$inferSelect;
 
 

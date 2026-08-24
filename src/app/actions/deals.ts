@@ -120,6 +120,8 @@ export async function updateDeal(
     probability?: number;
     ownerId?: string;
     healthFlags?: string[];
+    lostReason?: string;
+    lostReasonNotes?: string;
   }
 ) {
   const session = await auth();
@@ -151,6 +153,8 @@ export async function updateDeal(
   if (data.expectedCloseDate !== undefined) updateFields.expectedCloseDate = data.expectedCloseDate || null;
   if (data.ownerId !== undefined && role !== "rep") updateFields.ownerId = data.ownerId;
   if (data.healthFlags !== undefined) updateFields.healthFlags = data.healthFlags;
+  if (data.lostReason !== undefined) updateFields.lostReason = data.lostReason;
+  if (data.lostReasonNotes !== undefined) updateFields.lostReasonNotes = data.lostReasonNotes;
 
   // Handle stage change mechanics
   if (data.stageId !== undefined && data.stageId !== deal.stageId) {
@@ -264,4 +268,35 @@ export async function deleteDeal(id: string) {
 
   revalidatePath("/dashboard/deals");
   return { success: true };
+}
+
+export async function getLostReasonStats(pipelineId?: string) {
+  const session = await auth();
+  if (!session?.user) return [];
+
+  const { orgId } = session.user;
+  const allDeals = await db.query.deals.findMany({
+    where: pipelineId
+      ? and(eq(deals.orgId, orgId), eq(deals.pipelineId, pipelineId))
+      : eq(deals.orgId, orgId),
+    with: { stage: true },
+  });
+
+  const lostDeals = allDeals.filter((d) => d.stage?.type === "lost");
+  const statsMap: Record<string, { count: number; totalValue: number }> = {};
+
+  for (const d of lostDeals) {
+    const reason = d.lostReason || "Unspecified Reason";
+    if (!statsMap[reason]) {
+      statsMap[reason] = { count: 0, totalValue: 0 };
+    }
+    statsMap[reason].count += 1;
+    statsMap[reason].totalValue += d.value;
+  }
+
+  return Object.entries(statsMap).map(([reason, data]) => ({
+    reason,
+    count: data.count,
+    totalValue: data.totalValue,
+  }));
 }

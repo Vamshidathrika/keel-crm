@@ -30,7 +30,7 @@ export async function runGuardianAgent(
 
   thoughtProcess.push(`[Ledger] Found ${overdueInvoices.length} overdue invoice(s) across customer accounts.`);
 
-  let summary = `Guardian reviewed financial telemetry: ${overdueInvoices.length} overdue invoice(s) detected.`;
+  const summary = `Guardian reviewed financial telemetry: ${overdueInvoices.length} overdue invoice(s) detected.`;
 
   for (const inv of overdueInvoices) {
     const action: ProposedAction = {

@@ -61,9 +61,9 @@ async function specialistReasoningNode(state: AgentGraphState): Promise<Partial<
   const actionsProposed: ProposedAction[] = [];
 
   let summary = "";
-  let confidenceScore = 0.9;
+  const confidenceScore = 0.9;
   let score = 50;
-  let healthFlags: string[] = [];
+  const healthFlags: string[] = [];
 
   if (agentType === "prospector") {
     thoughts.push(`[Graph:Prospector] Analyzing ICP signals with Google Gemini intelligence.`);
