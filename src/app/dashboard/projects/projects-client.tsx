@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { FolderKanban, Plus, Search, CheckCircle2, Clock, AlertCircle, Calendar, Users, Loader2 } from "lucide-react";
+import { FolderKanban, Plus, Search, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createProject, updateProjectStatus } from "@/app/actions/projects";
+import { ProjectCard } from "@/components/projects/project-card";
 
 interface ProjectsClientProps {
   user: any;
@@ -21,7 +22,6 @@ export default function ProjectsClient({ user, initialProjects }: ProjectsClient
     title: "",
     clientName: "",
     budget: "",
-    deadline: "",
     status: "active" as "active" | "completed" | "on_hold",
   });
 
@@ -40,7 +40,7 @@ export default function ProjectsClient({ user, initialProjects }: ProjectsClient
 
       setProjects([created, ...projects]);
       setShowAdd(false);
-      setNewForm({ title: "", clientName: "", budget: "", deadline: "", status: "active" });
+      setNewForm({ title: "", clientName: "", budget: "", status: "active" });
     } catch (err) {
       console.error("Failed to create project:", err);
     } finally {
@@ -48,7 +48,7 @@ export default function ProjectsClient({ user, initialProjects }: ProjectsClient
     }
   };
 
-  const handleStatusChange = async (id: string, status: "active" | "completed" | "on_hold") => {
+  const handleStatusChange = async (id: string, status: "planning" | "active" | "completed" | "on_hold") => {
     try {
       await updateProjectStatus(id, status);
       setProjects(projects.map((p) => (p.id === id ? { ...p, status } : p)));
@@ -89,12 +89,12 @@ export default function ProjectsClient({ user, initialProjects }: ProjectsClient
           <CardHeader>
             <CardTitle className="text-base font-semibold">Initiate New Project</CardTitle>
             <CardDescription className="text-xs">
-              Record a new customer delivery contract, assigned budget, and target deadline.
+              Record a new customer delivery contract and assigned budget.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAdd} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-foreground">Project Name</label>
                   <Input
@@ -122,14 +122,6 @@ export default function ProjectsClient({ user, initialProjects }: ProjectsClient
                     onChange={(e) => setNewForm({ ...newForm, budget: e.target.value })}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">Target Deadline</label>
-                  <Input
-                    type="date"
-                    value={newForm.deadline}
-                    onChange={(e) => setNewForm({ ...newForm, deadline: e.target.value })}
-                  />
-                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -146,7 +138,7 @@ export default function ProjectsClient({ user, initialProjects }: ProjectsClient
         </Card>
       )}
 
-      {/* Projects List */}
+      {/* Projects Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {filtered.length === 0 ? (
           <div className="col-span-3 text-center py-12 text-muted-foreground text-sm border rounded-lg">
@@ -154,64 +146,7 @@ export default function ProjectsClient({ user, initialProjects }: ProjectsClient
           </div>
         ) : (
           filtered.map((p) => (
-            <Card key={p.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                      p.status === "completed"
-                        ? "bg-emerald-500/10 text-emerald-500"
-                        : p.status === "on_hold"
-                        ? "bg-amber-500/10 text-amber-500"
-                        : "bg-blue-500/10 text-blue-500"
-                    }`}
-                  >
-                    {p.status?.toUpperCase() || "ACTIVE"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-mono">{p.id}</span>
-                </div>
-                <CardTitle className="text-sm font-semibold pt-1">{p.name}</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Client: {p.client?.name || "Direct Client"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                <div className="flex justify-between items-center text-muted-foreground">
-                  <span>Budget</span>
-                  <span className="font-semibold text-foreground">
-                    ₹{(p.budget || 0).toLocaleString()}
-                  </span>
-                </div>
-                {p.deadline && (
-                  <div className="flex justify-between items-center text-muted-foreground">
-                    <span>Deadline</span>
-                    <span className="text-foreground">{p.deadline}</span>
-                  </div>
-                )}
-                <div className="flex justify-end gap-1 pt-2 border-t">
-                  {p.status !== "completed" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[10px]"
-                      onClick={() => handleStatusChange(p.id, "completed")}
-                    >
-                      Mark Completed
-                    </Button>
-                  )}
-                  {p.status === "completed" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[10px]"
-                      onClick={() => handleStatusChange(p.id, "active")}
-                    >
-                      Re-Open
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <ProjectCard key={p.id} project={p} onStatusChange={handleStatusChange} />
           ))
         )}
       </div>

@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, Plus, Search, Layers, Calendar, DollarSign, PenTool, CheckCircle, Loader2 } from "lucide-react";
+import { FileText, Plus, Search, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createQuote, updateQuoteStatus } from "@/app/actions/quotes";
+import { QuotesTable } from "@/components/quotes/quotes-table";
 
 interface QuotesClientProps {
   user: any;
@@ -21,7 +22,6 @@ export default function QuotesClient({ user, initialQuotes }: QuotesClientProps)
     title: "",
     clientName: "",
     amount: "",
-    validUntil: "",
   });
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -38,7 +38,7 @@ export default function QuotesClient({ user, initialQuotes }: QuotesClientProps)
 
       setQuotes([created, ...quotes]);
       setShowAdd(false);
-      setNewForm({ title: "", clientName: "", amount: "", validUntil: "" });
+      setNewForm({ title: "", clientName: "", amount: "" });
     } catch (err) {
       console.error("Failed to create quotation:", err);
     } finally {
@@ -87,7 +87,7 @@ export default function QuotesClient({ user, initialQuotes }: QuotesClientProps)
           <CardHeader>
             <CardTitle className="text-base font-semibold">New Engineering Quotation</CardTitle>
             <CardDescription className="text-xs">
-              Generate a configure-price-quote draft with line items and validity date.
+              Generate a configure-price-quote draft with line items and customer pricing.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -159,74 +159,7 @@ export default function QuotesClient({ user, initialQuotes }: QuotesClientProps)
           </div>
         </CardHeader>
         <CardContent>
-          {filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              No quotations found. Click "Create Quote" to generate the first CPQ quote.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b bg-muted/40 text-muted-foreground uppercase text-[10px] tracking-wider">
-                  <tr>
-                    <th className="p-3">Quote ID & Title</th>
-                    <th className="p-3">Customer</th>
-                    <th className="p-3">Total Value</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {filtered.map((q) => (
-                    <tr key={q.id} className="hover:bg-muted/50 transition-colors">
-                      <td className="p-3 font-medium">
-                        <div className="font-semibold text-foreground">{q.title}</div>
-                        <div className="text-[10px] text-muted-foreground font-mono">{q.id}</div>
-                      </td>
-                      <td className="p-3 text-muted-foreground">{q.client?.name || "Direct Client"}</td>
-                      <td className="p-3 font-semibold text-foreground">
-                        ₹{(q.total || 0).toLocaleString()}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                            q.status === "accepted"
-                              ? "bg-emerald-500/10 text-emerald-500"
-                              : q.status === "sent"
-                              ? "bg-blue-500/10 text-blue-500"
-                              : "bg-amber-500/10 text-amber-500"
-                          }`}
-                        >
-                          {q.status?.toUpperCase() || "DRAFT"}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right space-x-1">
-                        {q.status !== "accepted" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-[10px]"
-                            onClick={() => handleStatusUpdate(q.id, "accepted")}
-                          >
-                            Mark Accepted
-                          </Button>
-                        )}
-                        {q.status === "draft" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-[10px]"
-                            onClick={() => handleStatusUpdate(q.id, "sent")}
-                          >
-                            Mark Sent
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <QuotesTable quotes={filtered} onStatusUpdate={handleStatusUpdate} />
         </CardContent>
       </Card>
     </div>
