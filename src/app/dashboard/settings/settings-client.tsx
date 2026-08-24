@@ -43,6 +43,7 @@ import { createAutomation, deleteAutomation, toggleAutomation } from "@/app/acti
 import { findDuplicateContacts, mergeContacts } from "@/app/actions/duplicates";
 import { saveBrandingConfig, type BrandingConfig } from "@/server/actions/branding";
 import { toggleWidget } from "@/server/actions/widgets";
+import { WorkflowCanvas } from "@/components/automations/workflow-canvas";
 import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
 import { toast } from "sonner";
 
@@ -753,15 +754,28 @@ export default function SettingsClient({
         </TabsContent>
 
         {/* Tab: Automations */}
-        <TabsContent value="automations">
+        <TabsContent value="automations" className="space-y-6">
+          {/* Visual XYFlows DAG Canvas */}
+          <div>
+            <div className="mb-2">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <GitBranch className="w-4 h-4 text-primary" /> Visual Workflow DAG Canvas
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Drag, drop, and connect triggers, condition filters, and autonomous agent hands.
+              </p>
+            </div>
+            <WorkflowCanvas />
+          </div>
+
           <Card className="border border-border bg-card">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-bold flex items-center gap-1.5">
-                  <ToggleLeft className="w-4 h-4 text-primary" /> Workflow Automations
+                  <ToggleLeft className="w-4 h-4 text-primary" /> Active Workflow Rules
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
-                  Trigger automated CRM actions based on pipeline events.
+                  Event-driven rules executed across CRM pipelines and webhooks.
                 </CardDescription>
               </div>
               <Button onClick={() => setShowAutoDialog(true)} size="sm">
