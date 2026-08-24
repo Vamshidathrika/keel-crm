@@ -400,12 +400,18 @@ async function main() {
     automationSweepRoute.POST(createReq("http://localhost/api/automation/sweep", "POST"))
   );
 
-  // --- Security Auth Gate Verification ---
-  console.log("\n🛡️  7. Security & Authentication Gate Verification:");
-  await testEndpoint("GET /api/v1/contacts (Unauthorized - Missing Key)", () =>
+  // --- Authorized vs Unauthorized Security Verification ---
+  console.log("\n🛡️  7. Security Gate & Access Control Verification:");
+  await testEndpoint("GET /api/v1/contacts (Authorized with Valid Key)", () =>
+    contactsRoute.GET(createReq("http://localhost/api/v1/contacts", "GET", rawTestKey)), 200
+  );
+  await testEndpoint("GET /api/v1/deals (Authorized with Valid Key)", () =>
+    dealsRoute.GET(createReq("http://localhost/api/v1/deals", "GET", rawTestKey)), 200
+  );
+  await testEndpoint("GET /api/v1/contacts (Security Gate: Rejects Missing Key)", () =>
     contactsRoute.GET(createReq("http://localhost/api/v1/contacts", "GET")), 401
   );
-  await testEndpoint("GET /api/v1/deals (Unauthorized - Bad Key)", () =>
+  await testEndpoint("GET /api/v1/deals (Security Gate: Rejects Invalid Key)", () =>
     dealsRoute.GET(createReq("http://localhost/api/v1/deals", "GET", "keel_sk_invalid_bogus_key")), 401
   );
 
