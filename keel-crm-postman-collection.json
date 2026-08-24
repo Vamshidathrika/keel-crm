@@ -1,0 +1,1159 @@
+{
+  "info": {
+    "_postman_id": "keel-crm-complete-all-modules-collection",
+    "name": "Keel CRM - Complete Master API Collection (All Modules)",
+    "description": "Exhaustive, 100% complete Postman Collection covering EVERY SINGLE API endpoint across EVERY module of Keel Autonomous Agentic CRM.\n\n### Modules Included:\n1. **Core CRM & Pipeline Management**\n   - Contacts (List, Search, Create, Lead Scoring)\n   - Deals (List, Filter by Pipeline, Create Opportunity)\n   - Companies & Accounts (List, Search, Create)\n   - Unified Activities & Call Transcripts (List, Filter, Ingest with Idempotency & AI pass)\n   - Tasks (List, Filter by Status, Create with Priority & Due Date)\n   - Notes (List, Filter by Contact/Deal, Create)\n   - Pipelines & Stages (List, Create Pipeline with Ordered Stages)\n   - Tags & Custom Field Definitions (List, Create Custom Attributes)\n   - Global CRM Search & Duplicate Detection/Merge\n2. **Business OS & Revenue Operations**\n   - Clients & Client Accounts (List, Search, Provision with Portal Token)\n   - Quotations & Commercial Proposals (List, Filter, Create Quote)\n   - Invoices (List, Filter Unpaid/Overdue, Issue Invoice)\n   - Payments (List, Record Payment & Auto-Mark Invoice Paid)\n   - Revenue Metrics (Aggregated Pipeline, Invoicing, & Collection KPIs)\n   - Projects & Delivery Tracking (List, Create Project, Tasks & Deliverables)\n   - Follow-ups (List, Schedule Multi-channel Follow-ups)\n3. **Autonomous AI Agents & Agentic Memory**\n   - Invoke Specialist Agents (`prospector`, `deal_doctor`, `guardian`, `copilot`)\n   - Agent Run History & Audit Logs (List execution traces & tool invocations)\n   - Human-in-the-Loop Action Queue (List pending items, Approve/Reject)\n   - Long-Term Agentic Memory (Query & Upsert persistent key-values)\n   - Agent Configuration (Get & Update execution mode, intervals, models)\n4. **Generative AI & Copilot Engine**\n   - Copilot Chat Assistant (Context-aware CRM copilot)\n   - Business Insights Narrative (KPI analysis & recommendations)\n   - Proposal Quote Line Item Generator (AI quotation engine)\n   - Follow-up Suggestion Drafter (AI WhatsApp/Email drafts)\n   - Conversation Thread Summarizer\n5. **Vertical Industry Modules**\n   - Logistics & Freight Shipments (Booking, ETA, Carrier tracking)\n   - Fintech & KYC Compliance (Regulatory documents, Status checks)\n   - Appointments & Service Booking (Scheduling, Time slots)\n   - E-Commerce & Wholesale Orders (Fulfillment, Line summaries)\n   - Real Estate Properties (Listings, Pricing, Tenant/Buyer assignment)\n6. **Developer Platform, Webhooks & Governance**\n   - Outbound Webhooks (List, Register with Signing Secret)\n   - Inbound Payment Webhook (Auto-transition deal to Won & fan out webhooks)\n   - Workflow Automations (List, Create trigger-condition-action rules)\n   - Scoped API Keys (List, Generate new keys)\n   - Audit Logs & Security Trails\n   - Notification Center\n   - Team Management (List, Add team members)\n   - OpenAPI 3.1 Live Spec\n7. **Background Sweeps & Cron Workers**\n   - Agent Sweep Engine (POST / GET)\n   - Due-Date & Overdue Invoices / Followups Sweep Engine\n8. **Omnichannel Messaging & Client Portal**\n   - Outbound WhatsApp & Email Sender\n   - Client Portal Inbound Message & Automated Partner Reply\n9. **Authentication & Session (NextAuth)**\n   - Session, CSRF Token, Providers, Credentials Sign-in, Sign-out",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string",
+      "description": "Base URL of the Keel CRM deployment"
+    },
+    {
+      "key": "apiKey",
+      "value": "keel_sk_live_sample_key_here",
+      "type": "string",
+      "description": "Scoped Platform API Key for v1 endpoints (keel_sk_...)"
+    },
+    {
+      "key": "cronSecret",
+      "value": "your-cron-secret-key",
+      "type": "string",
+      "description": "Bearer token for triggering agent sweeps"
+    },
+    {
+      "key": "portalToken",
+      "value": "sample_client_portal_token",
+      "type": "string",
+      "description": "Client Portal access token for client portal message simulations"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. CRM Core & Pipelines",
+      "description": "Core CRM customer records, pipeline opportunities, activities, tasks, notes, search, and deduplication.",
+      "item": [
+        {
+          "name": "Contacts - List / Search",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/contacts?query=&limit=25",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "contacts"],
+              "query": [
+                { "key": "query", "value": "", "description": "Filter by name, email, or phone" },
+                { "key": "limit", "value": "25", "description": "Max results (1-100)" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Contacts - Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Rajesh\",\n  \"lastName\": \"Kumar\",\n  \"email\": \"rajesh.kumar@apexlogistics.in\",\n  \"phone\": \"+919811223344\",\n  \"title\": \"Managing Director\",\n  \"companyId\": null,\n  \"tags\": [\"Lead\", \"High Value\"],\n  \"customFields\": {\n    \"budget\": \"₹50,00,000\",\n    \"fleetSize\": 45\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/contacts", "host": ["{{baseUrl}}"], "path": ["api", "v1", "contacts"] }
+          }
+        },
+        {
+          "name": "Deals - List Pipeline Deals",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/deals?pipelineId=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "deals"],
+              "query": [
+                { "key": "pipelineId", "value": "", "description": "Filter by pipeline ID" },
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Deals - Create Deal Opportunity",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Custom Warehouse TMS Integration\",\n  \"value\": 850000,\n  \"currency\": \"INR\",\n  \"pipelineId\": null,\n  \"stageId\": null,\n  \"contactId\": null,\n  \"companyId\": null,\n  \"expectedCloseDate\": \"2026-09-30\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/deals", "host": ["{{baseUrl}}"], "path": ["api", "v1", "deals"] }
+          }
+        },
+        {
+          "name": "Companies - List Accounts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/companies?query=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "companies"],
+              "query": [{ "key": "query", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Companies - Create Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Horizon Logistics Private Limited\",\n  \"domain\": \"horizonlogistics.co.in\",\n  \"industry\": \"Logistics & Freight\",\n  \"website\": \"https://horizonlogistics.co.in\",\n  \"tags\": [\"Tier-1 Carrier\", \"South Zone\"],\n  \"customFields\": {\n    \"gstin\": \"36AAACH7409R1ZZ\",\n    \"annualTurnover\": \"₹120 Cr\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/companies", "host": ["{{baseUrl}}"], "path": ["api", "v1", "companies"] }
+          }
+        },
+        {
+          "name": "Activities - List Timeline Activities",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/activities?contactId=&dealId=&type=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "activities"],
+              "query": [
+                { "key": "contactId", "value": "" },
+                { "key": "dealId", "value": "" },
+                { "key": "type", "value": "" },
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Activities - Ingest Call / Activity Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"call\",\n  \"source\": \"telephony_bridge\",\n  \"externalId\": \"call_rec_99283719\",\n  \"occurredAt\": \"2026-08-24T06:00:00.000Z\",\n  \"contact\": {\n    \"name\": \"Vikram Seth\",\n    \"phone\": \"+919876501234\",\n    \"email\": \"vikram@sethtransport.com\"\n  },\n  \"outcome\": \"interested\",\n  \"durationSec\": 145,\n  \"transcript\": \"Rep: Calling regarding the logistics software upgrade.\\nClient: We want 30 vehicles onboarded this quarter.\",\n  \"metadata\": {\n    \"agentName\": \"Kavita Rep\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/activities", "host": ["{{baseUrl}}"], "path": ["api", "v1", "activities"] }
+          }
+        },
+        {
+          "name": "Tasks - List Tasks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks?status=pending&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks"],
+              "query": [{ "key": "status", "value": "pending" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Tasks - Create Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Send revised commercial proposal with GST breakdown\",\n  \"description\": \"Include volume discount tier for 30+ vehicles.\",\n  \"priority\": \"high\",\n  \"dueDate\": \"2026-08-28\",\n  \"dealId\": null,\n  \"contactId\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tasks", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tasks"] }
+          }
+        },
+        {
+          "name": "Notes - List Notes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notes?contactId=&dealId=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notes"],
+              "query": [{ "key": "contactId", "value": "" }, { "key": "dealId", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Notes - Create Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Client mentioned competitor offered 10% discount on 2-year upfront commitment.\",\n  \"contactId\": null,\n  \"dealId\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/notes", "host": ["{{baseUrl}}"], "path": ["api", "v1", "notes"] }
+          }
+        },
+        {
+          "name": "Pipelines - List Pipelines & Stages",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/pipelines", "host": ["{{baseUrl}}"], "path": ["api", "v1", "pipelines"] }
+          }
+        },
+        {
+          "name": "Pipelines - Create Pipeline with Stages",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Enterprise Software Sales\",\n  \"isDefault\": false,\n  \"stages\": [\n    { \"name\": \"Discovery\", \"type\": \"open\", \"probability\": 20, \"color\": \"#3B82F6\" },\n    { \"name\": \"Demo & PoC\", \"type\": \"open\", \"probability\": 50, \"color\": \"#8B5CF6\" },\n    { \"name\": \"Proposal & Negotiation\", \"type\": \"open\", \"probability\": 75, \"color\": \"#F59E0B\" },\n    { \"name\": \"Closed Won\", \"type\": \"won\", \"probability\": 100, \"color\": \"#10B981\" },\n    { \"name\": \"Closed Lost\", \"type\": \"lost\", \"probability\": 0, \"color\": \"#EF4444\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/pipelines", "host": ["{{baseUrl}}"], "path": ["api", "v1", "pipelines"] }
+          }
+        },
+        {
+          "name": "Tags - List Tags",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/tags", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tags"] }
+          }
+        },
+        {
+          "name": "Tags - Create Tag",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Strategic Account\",\n  \"color\": \"#6366F1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/tags", "host": ["{{baseUrl}}"], "path": ["api", "v1", "tags"] }
+          }
+        },
+        {
+          "name": "Custom Fields - List Definitions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/custom-fields?entityType=contact",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "custom-fields"],
+              "query": [{ "key": "entityType", "value": "contact" }]
+            }
+          }
+        },
+        {
+          "name": "Custom Fields - Define Field",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Annual Contract Budget\",\n  \"key\": \"annual_budget\",\n  \"fieldType\": \"number\",\n  \"entityType\": \"deal\",\n  \"isRequired\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/custom-fields", "host": ["{{baseUrl}}"], "path": ["api", "v1", "custom-fields"] }
+          }
+        },
+        {
+          "name": "Global Search - Search CRM",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/search?q=Logistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "search"],
+              "query": [{ "key": "q", "value": "Logistics", "description": "Search across contacts, deals, companies, tasks" }]
+            }
+          }
+        },
+        {
+          "name": "Duplicates - Scan & Detect Clusters",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/duplicates", "host": ["{{baseUrl}}"], "path": ["api", "v1", "duplicates"] }
+          }
+        },
+        {
+          "name": "Duplicates - Merge Duplicate Contacts",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"primaryContactId\": \"cont_primary_123\",\n  \"duplicateContactIds\": [\"cont_dup_456\", \"cont_dup_789\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/duplicates", "host": ["{{baseUrl}}"], "path": ["api", "v1", "duplicates"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Business OS & Revenue",
+      "description": "Client accounts, quotes, invoices, payments, revenue metrics, project execution, and follow-ups.",
+      "item": [
+        {
+          "name": "Clients - List / Search Clients",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients?query=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "clients"],
+              "query": [{ "key": "query", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Clients - Create Client Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apex Logistics Private Limited\",\n  \"email\": \"accounts@apexlogistics.in\",\n  \"phone\": \"+919811223344\",\n  \"companyId\": null,\n  \"contactId\": null,\n  \"status\": \"active\",\n  \"notes\": \"Key enterprise account with multi-city fleet.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/clients", "host": ["{{baseUrl}}"], "path": ["api", "v1", "clients"] }
+          }
+        },
+        {
+          "name": "Quotations - List Quotations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/quotations?clientId=&dealId=&status=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "quotations"],
+              "query": [
+                { "key": "clientId", "value": "" },
+                { "key": "dealId", "value": "" },
+                { "key": "status", "value": "" },
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Quotations - Create Quotation",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"TMS Software & Telematics Onboarding Quote\",\n  \"amount\": 850000,\n  \"currency\": \"INR\",\n  \"clientId\": null,\n  \"dealId\": null,\n  \"validUntil\": \"2026-09-30\",\n  \"terms\": \"50% upfront payment upon contract signing, 50% upon deployment.\",\n  \"items\": [\n    { \"name\": \"Core SaaS License (1 Year)\", \"qty\": 1, \"price\": 500000 },\n    { \"name\": \"Hardware Gateway Telematics Units\", \"qty\": 30, \"price\": 10000 },\n    { \"name\": \"Customs & ERP Integration Package\", \"qty\": 1, \"price\": 50000 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/quotations", "host": ["{{baseUrl}}"], "path": ["api", "v1", "quotations"] }
+          }
+        },
+        {
+          "name": "Invoices - List Invoices",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invoices?clientId=&status=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invoices"],
+              "query": [{ "key": "clientId", "value": "" }, { "key": "status", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Invoices - Issue New Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": null,\n  \"dealId\": null,\n  \"amount\": 425000,\n  \"currency\": \"INR\",\n  \"dueDate\": \"2026-09-15\",\n  \"items\": [\n    { \"name\": \"Milestone 1: Software Configuration & Telematics Hardware Delivery\", \"qty\": 1, \"price\": 425000 }\n  ],\n  \"notes\": \"Payment via NEFT/RTGS to HDFC Bank.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/invoices", "host": ["{{baseUrl}}"], "path": ["api", "v1", "invoices"] }
+          }
+        },
+        {
+          "name": "Payments - List Payment Records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments?invoiceId=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "payments"],
+              "query": [{ "key": "invoiceId", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Payments - Record Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceId\": \"inv_sample_id\",\n  \"amount\": 425000,\n  \"currency\": \"INR\",\n  \"paymentMethod\": \"bank_transfer\",\n  \"referenceNumber\": \"UTR_HDFC_9928172648\",\n  \"notes\": \"Milestone 1 advance received.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/payments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "payments"] }
+          }
+        },
+        {
+          "name": "Revenue - Aggregated KPIs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/revenue", "host": ["{{baseUrl}}"], "path": ["api", "v1", "revenue"] }
+          }
+        },
+        {
+          "name": "Projects - List Delivery Projects",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects?clientId=&status=active&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects"],
+              "query": [{ "key": "clientId", "value": "" }, { "key": "status", "value": "active" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Projects - Create Delivery Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Apex Fleet GPS & TMS Onboarding Rollout\",\n  \"clientId\": null,\n  \"dealId\": null,\n  \"status\": \"active\",\n  \"targetCompletionDate\": \"2026-10-15\",\n  \"deliverablesSummary\": \"Install 30 hardware sensors, configure cloud telemetry dashboard, and train operations dispatch team.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects"] }
+          }
+        },
+        {
+          "name": "Follow-ups - List Scheduled Follow-ups",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/followups?status=pending&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "followups"],
+              "query": [{ "key": "status", "value": "pending" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Follow-ups - Schedule Follow-up",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Send deployment milestone update via WhatsApp\",\n  \"dueDate\": \"2026-08-29\",\n  \"contactId\": null,\n  \"dealId\": null,\n  \"channel\": \"whatsapp\",\n  \"suggestedDraft\": \"Hi Rajesh, our hardware technician has scheduled site installation for tomorrow 10 AM.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/followups", "host": ["{{baseUrl}}"], "path": ["api", "v1", "followups"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Autonomous AI Agents & Memory",
+      "description": "Programmatic execution, run traces, human-in-the-loop action queue, and long-term memory.",
+      "item": [
+        {
+          "name": "Invoke Autonomous Specialist Agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agentType\": \"deal_doctor\",\n  \"prompt\": \"Analyze pipeline velocity and recommend discount concessions to close stalled opportunities before quarter end.\",\n  \"targetEntityType\": \"org\",\n  \"targetEntityId\": \"org_default\",\n  \"executionMode\": \"supervised\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/agents/invoke", "host": ["{{baseUrl}}"], "path": ["api", "v1", "agents", "invoke"] }
+          }
+        },
+        {
+          "name": "Agent Runs - List Execution History & Traces",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/runs?agentType=&status=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "runs"],
+              "query": [{ "key": "agentType", "value": "" }, { "key": "status", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Action Queue - List Pending Agent Actions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/actions?status=pending&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "actions"],
+              "query": [{ "key": "status", "value": "pending" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Action Queue - Approve or Reject Proposed Action",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionId\": \"agact_sample_id\",\n  \"decision\": \"approved\",\n  \"rejectionReason\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/agents/actions", "host": ["{{baseUrl}}"], "path": ["api", "v1", "agents", "actions"] }
+          }
+        },
+        {
+          "name": "Agent Memory - Query Long-Term Key-Values",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/memories?entityType=contact&entityId=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "memories"],
+              "query": [{ "key": "entityType", "value": "contact" }, { "key": "entityId", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Agent Memory - Upsert Long-Term Knowledge",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityType\": \"contact\",\n  \"entityId\": \"cont_sample_id\",\n  \"key\": \"procurement_preferences\",\n  \"value\": {\n    \"paymentTerms\": \"Net-45\",\n    \"decisionDriver\": \"SLA uptime guarantee\",\n    \"bestTimeToCall\": \"Tuesday 11 AM\"\n  },\n  \"confidence\": 0.95,\n  \"sourceAgent\": \"prospector\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/agents/memories", "host": ["{{baseUrl}}"], "path": ["api", "v1", "agents", "memories"] }
+          }
+        },
+        {
+          "name": "Agent Configs - Get Configuration",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/agents/configs", "host": ["{{baseUrl}}"], "path": ["api", "v1", "agents", "configs"] }
+          }
+        },
+        {
+          "name": "Agent Configs - Update Configuration",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agentType\": \"deal_doctor\",\n  \"isEnabled\": true,\n  \"executionMode\": \"supervised\",\n  \"sweepIntervalHours\": 12,\n  \"model\": \"gemini-2.5-flash\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/agents/configs", "host": ["{{baseUrl}}"], "path": ["api", "v1", "agents", "configs"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Generative AI & Copilot Engine",
+      "description": "Real-time AI copilot, proposal generation, business insights, thread summarization, and follow-up drafter.",
+      "item": [
+        {
+          "name": "Copilot Chat Assistant",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"What deals need immediate attention this week to hit our revenue target?\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/copilot", "host": ["{{baseUrl}}"], "path": ["api", "copilot"] }
+          }
+        },
+        {
+          "name": "Business Insights KPI Analysis",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kpis\": {\n    \"revenue\": \"₹48,50,000\",\n    \"pendingInvoices\": \"3\",\n    \"activeProjects\": \"7\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/ai/business-insights", "host": ["{{baseUrl}}"], "path": ["api", "ai", "business-insights"] }
+          }
+        },
+        {
+          "name": "Generate Proposal Quote Line Items",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dealName\": \"Cross-docking Warehouse Automation\",\n  \"clientName\": \"Omni Retail India\",\n  \"industry\": \"logistics\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/ai/generate-proposal", "host": ["{{baseUrl}}"], "path": ["api", "ai", "generate-proposal"] }
+          }
+        },
+        {
+          "name": "Suggest Follow-up Draft",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dealName\": \"Warehouse Management Software\",\n  \"clientName\": \"Pooja Agarwal\",\n  \"lastMessage\": \"Can you review the terms of clause 4 regarding data privacy?\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/ai/suggest-followup", "host": ["{{baseUrl}}"], "path": ["api", "ai", "suggest-followup"] }
+          }
+        },
+        {
+          "name": "Summarize Conversation Thread",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    { \"sender\": \"client\", \"text\": \"Hi team, we noticed a discrepancy in the transit time estimated for Chennai port.\" },\n    { \"sender\": \"agent\", \"text\": \"Hello! Thanks for flagging. We verified with port customs and expedited clearance.\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/ai/summarize", "host": ["{{baseUrl}}"], "path": ["api", "ai", "summarize"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Vertical Industry Modules",
+      "description": "Logistics, KYC Compliance, Appointments, E-Commerce, and Real Estate vertical extensions.",
+      "item": [
+        {
+          "name": "Logistics - List Shipments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/shipments?dealId=&status=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "shipments"],
+              "query": [{ "key": "dealId", "value": "" }, { "key": "status", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Logistics - Book Shipment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dealName\": \"Mumbai Port Container Consignment #9921\",\n  \"carrier\": \"Maersk Logistics\",\n  \"origin\": \"JNPT Port, Mumbai\",\n  \"destination\": \"Hamburg Port, Germany\",\n  \"eta\": \"2026-09-24\",\n  \"mode\": \"Ocean Freight\",\n  \"cost\": \"240000\",\n  \"status\": \"Booking Confirmed\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/shipments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "shipments"] }
+          }
+        },
+        {
+          "name": "KYC Compliance - List Records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/kyc?complianceStatus=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "kyc"],
+              "query": [{ "key": "complianceStatus", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "KYC Compliance - Submit KYC Record",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": \"Aarav Mehta\",\n  \"docType\": \"Aadhaar & PAN Verification\",\n  \"contactId\": null,\n  \"complianceStatus\": \"Verified\",\n  \"regulatoryLogs\": \"Biometric KYC confirmed via NSDL API bridge.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/kyc", "host": ["{{baseUrl}}"], "path": ["api", "v1", "kyc"] }
+          }
+        },
+        {
+          "name": "Appointments - List Appointments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/appointments?status=Scheduled&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "appointments"],
+              "query": [{ "key": "status", "value": "Scheduled" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Appointments - Book Appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientName\": \"Siddharth Verma\",\n  \"serviceType\": \"Enterprise Architecture Strategy Consultation\",\n  \"dateTime\": \"2026-08-28T14:30:00.000Z\",\n  \"notes\": \"Discuss multi-tenant database migration and latency SLOs.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/appointments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "appointments"] }
+          }
+        },
+        {
+          "name": "Orders - List Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders?fulfillmentStatus=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"],
+              "query": [{ "key": "fulfillmentStatus", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Orders - Register Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientName\": \"Metro Hypermarket\",\n  \"itemsSummary\": \"50x Barcode Scanners, 12x POS Thermal Printers\",\n  \"totalAmount\": \"185000\",\n  \"fulfillmentStatus\": \"Processing\",\n  \"deliveryEta\": \"2026-09-02\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/orders", "host": ["{{baseUrl}}"], "path": ["api", "v1", "orders"] }
+          }
+        },
+        {
+          "name": "Real Estate - List Properties",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/properties?status=Available&type=Commercial&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "properties"],
+              "query": [{ "key": "status", "value": "Available" }, { "key": "type", "value": "Commercial" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Real Estate - List New Property",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Grade-A Tech Park Commercial Office (12,000 sq ft)\",\n  \"location\": \"HITEC City, Hyderabad\",\n  \"price\": \"₹1,45,000 / month\",\n  \"type\": \"Commercial\",\n  \"status\": \"Available\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/properties", "host": ["{{baseUrl}}"], "path": ["api", "v1", "properties"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Integrations, Webhooks & Governance",
+      "description": "Outbound & Inbound Webhooks, Automations, API Keys, Audit Logs, Notifications, Team management, and OpenAPI Spec.",
+      "item": [
+        {
+          "name": "Webhooks - List Registered Webhooks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/webhooks", "host": ["{{baseUrl}}"], "path": ["api", "v1", "webhooks"] }
+          }
+        },
+        {
+          "name": "Webhooks - Register Outbound Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://hooks.zapier.com/hooks/catch/12345/abcde\",\n  \"events\": [\"deal.won\", \"contact.created\", \"payment.received\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/webhooks", "host": ["{{baseUrl}}"], "path": ["api", "v1", "webhooks"] }
+          }
+        },
+        {
+          "name": "Payment Webhook - Deal Won Transition",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgId\": \"org_default\",\n  \"dealId\": \"deal_5544\",\n  \"customerEmail\": \"rajesh.kumar@apexlogistics.in\",\n  \"amount\": 1250000,\n  \"currency\": \"INR\",\n  \"paymentId\": \"pay_razorpay_9938192\",\n  \"sendClientKickoff\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/webhooks/payment", "host": ["{{baseUrl}}"], "path": ["api", "v1", "webhooks", "payment"] }
+          }
+        },
+        {
+          "name": "Automations - List Automation Rules",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/automations", "host": ["{{baseUrl}}"], "path": ["api", "v1", "automations"] }
+          }
+        },
+        {
+          "name": "Automations - Create Automation Rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"High Value Deal Alert & Slack Dispatch\",\n  \"trigger\": \"deal.created\",\n  \"isEnabled\": true,\n  \"conditions\": [\n    { \"field\": \"value\", \"operator\": \"gt\", \"value\": \"500000\" }\n  ],\n  \"actions\": [\n    { \"type\": \"send_notification\", \"config\": { \"channel\": \"admin_alert\" } }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/automations", "host": ["{{baseUrl}}"], "path": ["api", "v1", "automations"] }
+          }
+        },
+        {
+          "name": "API Keys - List Active Keys",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/apikeys", "host": ["{{baseUrl}}"], "path": ["api", "v1", "apikeys"] }
+          }
+        },
+        {
+          "name": "API Keys - Generate New Scoped Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mobile App Integration Key\",\n  \"scopes\": [\"contacts:read\", \"deals:read\", \"activities:write\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/apikeys", "host": ["{{baseUrl}}"], "path": ["api", "v1", "apikeys"] }
+          }
+        },
+        {
+          "name": "Audit Logs - Query Security Logs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit-logs?entityType=&action=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "audit-logs"],
+              "query": [{ "key": "entityType", "value": "" }, { "key": "action", "value": "" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Notifications - List User Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications?isRead=false&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications"],
+              "query": [{ "key": "isRead", "value": "false" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Notifications - Create In-App Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Payment Received: ₹12.5L\",\n  \"body\": \"Apex Logistics paid Invoice #INV-8891 in full.\",\n  \"type\": \"success\",\n  \"link\": \"/pipeline\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications", "host": ["{{baseUrl}}"], "path": ["api", "v1", "notifications"] }
+          }
+        },
+        {
+          "name": "Team - List Organization Members",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{apiKey}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/team", "host": ["{{baseUrl}}"], "path": ["api", "v1", "team"] }
+          }
+        },
+        {
+          "name": "Team - Add / Invite Team Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sameer Khan\",\n  \"email\": \"sameer.khan@keelcrm.com\",\n  \"role\": \"rep\",\n  \"password\": \"SecurePass9981!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/team", "host": ["{{baseUrl}}"], "path": ["api", "v1", "team"] }
+          }
+        },
+        {
+          "name": "OpenAPI - Live 3.1.0 Specification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/openapi.json", "host": ["{{baseUrl}}"], "path": ["api", "v1", "openapi.json"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Background Sweeps & Cron Workers",
+      "description": "Scheduled background jobs for Deal Doctor, Guardian agent, Briefing agent, and overdue invoice aging.",
+      "item": [
+        {
+          "name": "Trigger Autonomous Agent Sweep (POST)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{cronSecret}}" }],
+            "url": { "raw": "{{baseUrl}}/api/agents/sweep", "host": ["{{baseUrl}}"], "path": ["api", "agents", "sweep"] }
+          }
+        },
+        {
+          "name": "Trigger Autonomous Agent Sweep (GET)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{cronSecret}}" }],
+            "url": { "raw": "{{baseUrl}}/api/agents/sweep", "host": ["{{baseUrl}}"], "path": ["api", "agents", "sweep"] }
+          }
+        },
+        {
+          "name": "Trigger Overdue Invoices & Followups Sweep",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/automation/sweep", "host": ["{{baseUrl}}"], "path": ["api", "automation", "sweep"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Omnichannel Messaging & Client Portal",
+      "description": "WhatsApp & Email outbound dispatch, and Client Portal message webhook simulation.",
+      "item": [
+        {
+          "name": "Send Outbound Message (WhatsApp / Email)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"client_sample_id\",\n  \"contactId\": \"cont_sample_id\",\n  \"type\": \"whatsapp\",\n  \"text\": \"Hello Rajesh, your shipment consignment #KEEL-8891 is on schedule for delivery tomorrow by 3 PM.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/messages/send", "host": ["{{baseUrl}}"], "path": ["api", "messages", "send"] }
+          }
+        },
+        {
+          "name": "Client Portal - Inbound Message & Auto-Reply",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{portalToken}}\",\n  \"text\": \"Hi team, we need to add 2 additional drop-off locations to the itinerary for tomorrow.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/portal/message", "host": ["{{baseUrl}}"], "path": ["api", "portal", "message"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Authentication & Session (NextAuth)",
+      "description": "NextAuth session checks, CSRF, providers, and authentication credentials.",
+      "item": [
+        {
+          "name": "Get Active Session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/auth/session", "host": ["{{baseUrl}}"], "path": ["api", "auth", "session"] }
+          }
+        },
+        {
+          "name": "Get CSRF Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/auth/csrf", "host": ["{{baseUrl}}"], "path": ["api", "auth", "csrf"] }
+          }
+        },
+        {
+          "name": "Get Auth Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/auth/providers", "host": ["{{baseUrl}}"], "path": ["api", "auth", "providers"] }
+          }
+        },
+        {
+          "name": "Sign In (Credentials)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "admin@keelcrm.com", "type": "text" },
+                { "key": "password", "value": "admin123", "type": "text" },
+                { "key": "csrfToken", "value": "your_csrf_token_here", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/callback/credentials", "host": ["{{baseUrl}}"], "path": ["api", "auth", "callback", "credentials"] }
+          }
+        },
+        {
+          "name": "Sign Out",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [{ "key": "csrfToken", "value": "your_csrf_token_here", "type": "text" }]
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/signout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "signout"] }
+          }
+        }
+      ]
+    }
+  ]
+}

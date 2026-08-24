@@ -12,6 +12,37 @@ function hashApiKey(key: string): string {
   return crypto.createHash("sha256").update(key).digest("hex");
 }
 
+import { authenticateApiKey } from "@/lib/api/auth";
+import { desc } from "drizzle-orm";
+
+export async function GET(req: Request) {
+  const authResult = await authenticateApiKey(req, "activities:read");
+  if (!authResult.authorized) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const contactId = searchParams.get("contactId");
+  const dealId = searchParams.get("dealId");
+  const type = searchParams.get("type");
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)));
+
+  const orgId = authResult.orgId!;
+  const conditions = [eq(activities.orgId, orgId)];
+  if (contactId) conditions.push(eq(activities.relatedContactId, contactId));
+  if (dealId) conditions.push(eq(activities.relatedDealId, dealId));
+  if (type) conditions.push(eq(activities.type, type as any));
+
+  const results = await db.query.activities.findMany({
+    where: and(...conditions),
+    with: { actorUserId: true, relatedContact: true, relatedDeal: true, relatedCompany: true },
+    orderBy: [desc(activities.createdAt)],
+    limit,
+  });
+
+  return NextResponse.json({ data: results, count: results.length });
+}
+
 export async function POST(req: Request) {
   try {
     // 1. Authenticate API Key Bearer Token

@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "keel-crm-production-auth-secret-key-32chars",
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   trustHost: true,
