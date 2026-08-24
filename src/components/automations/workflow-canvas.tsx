@@ -17,16 +17,16 @@ import {
 import "@xyflow/react/dist/style.css";
 import { TriggerNode, ConditionNode, ActionNode } from "./workflow-nodes";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Plus, Play, Save, Zap, GitBranch, Bot, Sparkles, Layers, ArrowDown } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Plus, Play, Save, Zap, GitBranch, Bot, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
-// Clean Top-to-Bottom Vertical Flow (Attio & Zapier Mental Model)
+// Left-to-Right Horizontal Flow (Make.com & Zapier Canvas Mental Model)
 const INITIAL_NODES: Node[] = [
   {
     id: "node-1",
     type: "trigger",
-    position: { x: 300, y: 20 },
+    position: { x: 50, y: 160 },
     data: {
       label: "Inbound Payment Confirmed",
       badge: "WEBHOOK",
@@ -36,7 +36,7 @@ const INITIAL_NODES: Node[] = [
   {
     id: "node-2",
     type: "condition",
-    position: { x: 300, y: 190 },
+    position: { x: 440, y: 160 },
     data: {
       label: "Evaluate Deal Value & Status",
       ruleText: "deal.value >= 100000 && deal.stage != 'won'",
@@ -45,7 +45,7 @@ const INITIAL_NODES: Node[] = [
   {
     id: "node-3",
     type: "action",
-    position: { x: 120, y: 380 },
+    position: { x: 840, y: 50 },
     data: {
       label: "Transition Deal to 'Closed Won'",
       agentType: "crm_hand",
@@ -56,7 +56,7 @@ const INITIAL_NODES: Node[] = [
   {
     id: "node-4",
     type: "action",
-    position: { x: 480, y: 380 },
+    position: { x: 840, y: 260 },
     data: {
       label: "Dispatch Connected App (HMAC Webhook)",
       agentType: "webhook",
@@ -122,11 +122,11 @@ export function WorkflowCanvas() {
   );
 
   const addTriggerNode = () => {
-    const maxY = Math.max(...nodes.map((n) => n.position.y), 0);
+    const maxX = Math.max(...nodes.map((n) => n.position.x), 0);
     const newNode: Node = {
       id: `node_${Date.now()}`,
       type: "trigger",
-      position: { x: 300, y: maxY + 180 },
+      position: { x: maxX + 380, y: 160 },
       data: {
         label: "Lead Score Calculated",
         badge: "PROSPECTOR",
@@ -134,30 +134,30 @@ export function WorkflowCanvas() {
       },
     };
     setNodes((nds) => [...nds, newNode]);
-    toast.success("Added Vertical Trigger step");
+    toast.success("Added Horizontal Trigger step to right");
   };
 
   const addConditionNode = () => {
-    const maxY = Math.max(...nodes.map((n) => n.position.y), 0);
+    const maxX = Math.max(...nodes.map((n) => n.position.x), 0);
     const newNode: Node = {
       id: `node_${Date.now()}`,
       type: "condition",
-      position: { x: 300, y: maxY + 180 },
+      position: { x: maxX + 380, y: 160 },
       data: {
         label: "Evaluate ICP Qualification",
         ruleText: "contact.icpFit == 'Tier 1 (High)'",
       },
     };
     setNodes((nds) => [...nds, newNode]);
-    toast.success("Added Vertical Filter Condition step");
+    toast.success("Added Horizontal Filter Condition step to right");
   };
 
   const addActionNode = (type: "agent" | "webhook" | "task") => {
-    const maxY = Math.max(...nodes.map((n) => n.position.y), 0);
+    const maxX = Math.max(...nodes.map((n) => n.position.x), 0);
     const newNode: Node = {
       id: `node_${Date.now()}`,
       type: "action",
-      position: { x: 300, y: maxY + 180 },
+      position: { x: maxX + 380, y: 160 },
       data: {
         label:
           type === "agent"
@@ -173,21 +173,21 @@ export function WorkflowCanvas() {
       },
     };
     setNodes((nds) => [...nds, newNode]);
-    toast.success(`Added Vertical ${type.toUpperCase()} Action step`);
+    toast.success(`Added Horizontal ${type.toUpperCase()} Action step to right`);
   };
 
   const handleExecuteWorkflow = async () => {
     setIsExecuting(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 800));
-      toast.success(`Vertical DAG Traversal Successful! ${nodes.length} sequential steps verified.`);
+      toast.success(`Horizontal DAG Traversal Successful! ${nodes.length} sequential steps verified.`);
     } finally {
       setIsExecuting(false);
     }
   };
 
   const handleSaveWorkflow = () => {
-    toast.success(`Vertical Workflow DAG saved to database (${nodes.length} active steps)`);
+    toast.success(`Horizontal Workflow DAG saved to database (${nodes.length} active steps)`);
   };
 
   return (
@@ -230,11 +230,11 @@ export function WorkflowCanvas() {
         </div>
       </div>
 
-      {/* Visual Vertical Canvas */}
-      <Card className="h-[680px] border shadow-md overflow-hidden bg-background relative">
-        <div className="absolute top-3 left-4 z-10 bg-background/80 backdrop-blur-md px-3 py-1.5 rounded-lg border text-[11px] font-mono text-muted-foreground flex items-center gap-2">
-          <ArrowDown className="w-3.5 h-3.5 text-primary" />
-          <span>Top-to-Bottom Sequential Execution Flow</span>
+      {/* Visual Horizontal Canvas */}
+      <Card className="h-[620px] border shadow-md overflow-hidden bg-background relative">
+        <div className="absolute top-3 left-4 z-10 bg-background/85 backdrop-blur-md px-3 py-1.5 rounded-lg border text-[11px] font-mono text-muted-foreground flex items-center gap-2 shadow-sm">
+          <ArrowRight className="w-3.5 h-3.5 text-primary" />
+          <span>Left-to-Right Horizontal Execution Pipeline (Pan & Zoom Canvas)</span>
         </div>
         <ReactFlow
           nodes={nodes}

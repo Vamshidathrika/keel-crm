@@ -2,11 +2,11 @@
 
 import React, { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
-import { Zap, GitBranch, Bot, Sparkles, MessageCircle, DollarSign, ShieldAlert, CheckCircle2, ArrowDown } from "lucide-react";
+import { Zap, GitBranch, Bot, Sparkles, CheckCircle2 } from "lucide-react";
 
 export const TriggerNode = memo(({ data }: { data: any }) => {
   return (
-    <div className="bg-card border-2 border-emerald-500/90 rounded-xl p-4 shadow-md min-w-[280px] max-w-[320px] text-xs space-y-2.5 transition-all hover:shadow-emerald-500/10">
+    <div className="bg-card border-2 border-emerald-500 rounded-xl p-4 shadow-lg min-w-[280px] max-w-[320px] text-xs space-y-2.5 transition-all hover:shadow-emerald-500/20">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold text-emerald-600 dark:text-emerald-400 tracking-wide text-[11px]">
           <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center">
@@ -22,10 +22,11 @@ export const TriggerNode = memo(({ data }: { data: any }) => {
         <p className="font-semibold text-foreground text-xs">{data.label || "When Event Occurs"}</p>
         <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{data.description || "Inbound event listener"}</p>
       </div>
+      {/* Horizontal Right Output Handle */}
       <Handle
         type="source"
-        position={Position.Bottom}
-        className="w-3.5 h-3.5 bg-emerald-500 border-2 border-background shadow-sm hover:scale-125 transition-transform"
+        position={Position.Right}
+        className="w-3.5 h-3.5 bg-emerald-500 border-2 border-background shadow-md hover:scale-125 transition-transform"
       />
     </div>
   );
@@ -34,11 +35,12 @@ TriggerNode.displayName = "TriggerNode";
 
 export const ConditionNode = memo(({ data }: { data: any }) => {
   return (
-    <div className="bg-card border-2 border-amber-500/90 rounded-xl p-4 shadow-md min-w-[280px] max-w-[320px] text-xs space-y-2.5 transition-all hover:shadow-amber-500/10">
+    <div className="bg-card border-2 border-amber-500 rounded-xl p-4 shadow-lg min-w-[280px] max-w-[320px] text-xs space-y-2.5 transition-all hover:shadow-amber-500/20">
+      {/* Horizontal Left Input Handle */}
       <Handle
         type="target"
-        position={Position.Top}
-        className="w-3.5 h-3.5 bg-amber-500 border-2 border-background shadow-sm hover:scale-125 transition-transform"
+        position={Position.Left}
+        className="w-3.5 h-3.5 bg-amber-500 border-2 border-background shadow-md hover:scale-125 transition-transform"
       />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold text-amber-600 dark:text-amber-400 tracking-wide text-[11px]">
@@ -58,14 +60,15 @@ export const ConditionNode = memo(({ data }: { data: any }) => {
         </div>
       </div>
       <div className="flex justify-between items-center pt-1 text-[10px] font-semibold">
-        <span className="text-emerald-500 flex items-center gap-0.5">✓ Match (True)</span>
-        <span className="text-muted-foreground flex items-center gap-0.5">✗ Else (False)</span>
+        <span className="text-emerald-500">✓ True Branch ➔</span>
+        <span className="text-muted-foreground"></span>
       </div>
+      {/* Horizontal Right Output Handle */}
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         id="true"
-        className="w-3.5 h-3.5 bg-emerald-500 border-2 border-background shadow-sm hover:scale-125 transition-transform"
+        className="w-3.5 h-3.5 bg-emerald-500 border-2 border-background shadow-md hover:scale-125 transition-transform"
       />
     </div>
   );
@@ -76,11 +79,12 @@ export const ActionNode = memo(({ data }: { data: any }) => {
   const isAgent = data.agentType === "agent";
 
   return (
-    <div className="bg-card border-2 border-primary/90 rounded-xl p-4 shadow-md min-w-[280px] max-w-[320px] text-xs space-y-2.5 transition-all hover:shadow-primary/10">
+    <div className="bg-card border-2 border-primary rounded-xl p-4 shadow-lg min-w-[280px] max-w-[320px] text-xs space-y-2.5 transition-all hover:shadow-primary/20">
+      {/* Horizontal Left Input Handle */}
       <Handle
         type="target"
-        position={Position.Top}
-        className="w-3.5 h-3.5 bg-primary border-2 border-background shadow-sm hover:scale-125 transition-transform"
+        position={Position.Left}
+        className="w-3.5 h-3.5 bg-primary border-2 border-background shadow-md hover:scale-125 transition-transform"
       />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold text-primary tracking-wide text-[11px]">
