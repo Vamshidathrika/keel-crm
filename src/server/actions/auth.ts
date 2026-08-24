@@ -22,30 +22,37 @@ export async function registerOrganization(input: unknown) {
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   const { orgName, name, email, password } = parsed.data;
 
-  const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
-  if (existing) return { error: "An account with this email already exists." };
+  const cleanEmail = email.trim().toLowerCase();
+  const existing = await db.query.users.findFirst({ where: eq(users.email, cleanEmail) });
+  if (existing) return { error: "An account with this email already exists. Please sign in instead." };
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const [org] = await db.insert(organizations).values({ name: orgName, slug: slugify(orgName) }).returning();
-  const [newUser] = await db.insert(users).values({
-    orgId: org.id,
-    name,
-    email,
-    passwordHash,
-    role: "admin",
-  }).returning();
+  const [org] = await db
+    .insert(organizations)
+    .values({ name: orgName.trim(), slug: slugify(orgName) })
+    .returning();
+
+  const [newUser] = await db
+    .insert(users)
+    .values({
+      orgId: org.id,
+      name: name.trim(),
+      email: cleanEmail,
+      passwordHash,
+      role: "admin",
+    })
+    .returning();
 
   await seedOrganizationDefaults(org.id, newUser.id);
 
   try {
-    await signIn("credentials", { email, password, redirect: false });
-  } catch (err) {
-    if (err instanceof AuthError) return { error: "Account created, but sign-in failed. Try logging in." };
-    throw err;
+    await signIn("credentials", { email: cleanEmail, password, redirect: false });
+  } catch (_ignored) {
+    // Session can also be established on completion of onboarding or via client login
   }
 
-  return { success: true, orgId: org.id };
+  return { success: true, orgId: org.id, email: cleanEmail };
 }
 
 export async function loginWithCredentials(input: unknown) {
@@ -53,7 +60,11 @@ export async function loginWithCredentials(input: unknown) {
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
   try {
-    await signIn("credentials", { ...parsed.data, redirect: false });
+    await signIn("credentials", {
+      email: parsed.data.email.trim().toLowerCase(),
+      password: parsed.data.password,
+      redirect: false,
+    });
   } catch (err) {
     if (err instanceof AuthError) return { error: "Invalid email or password." };
     throw err;

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { registerSchema, type RegisterInput } from "@/lib/validators/auth";
-import { registerOrganization } from "@/server/actions/auth";
+import { registerOrganization, loginWithCredentials } from "@/server/actions/auth";
 import { completeOnboarding } from "@/server/actions/onboarding";
 import { BUSINESS_TYPES } from "@/lib/widgets/defaults";
 
@@ -23,6 +23,7 @@ export default function RegisterPage() {
   const [selectedBizType, setSelectedBizType] = useState<string>("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [createdOrgId, setCreatedOrgId] = useState<string>("");
+  const [registeredCreds, setRegisteredCreds] = useState<{ email?: string; password?: string }>({});
   const [finalizing, setFinalizing] = useState(false);
 
   const {
@@ -37,9 +38,10 @@ export default function RegisterPage() {
     setServerError(null);
     const res = await registerOrganization({ ...data, businessType: "" });
     if (!res || (res as any).error) {
-      setServerError((res as any)?.error ?? "Something went wrong");
+      setServerError((res as any)?.error ?? "Something went wrong creating your workspace.");
       return;
     }
+    setRegisteredCreds({ email: data.email, password: data.password });
     setCreatedOrgId((res as any).orgId ?? "");
     setStep(1);
   };
@@ -53,12 +55,20 @@ export default function RegisterPage() {
   // STEP 3: Contextual Q&A → finalize
   const onStep3Submit = async () => {
     setFinalizing(true);
+    setServerError(null);
     try {
       await completeOnboarding(createdOrgId, selectedBizType, answers);
-      router.push("/dashboard");
-      router.refresh();
-    } catch (err) {
-      setServerError("Setup failed. Please try again.");
+
+      // Authenticate directly to ensure session cookies are active
+      const creds = registeredCreds.email ? registeredCreds : getValues();
+      if (creds.email && creds.password) {
+        await loginWithCredentials({ email: creds.email, password: creds.password });
+      }
+
+      // Hard redirect to dashboard to ensure complete SSR hydration
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      setServerError(err?.message || "Setup failed. Please try logging in with your new credentials.");
       setFinalizing(false);
     }
   };

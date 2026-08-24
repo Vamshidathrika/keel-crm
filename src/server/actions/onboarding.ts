@@ -53,6 +53,9 @@ export async function completeOnboarding(
     );
   }
 
-  revalidatePath("/dashboard");
+  try {
+    revalidatePath("/dashboard");
+  } catch (_ignored) {}
+
   return { success: true, widgetCount: widgetKeys.length };
 }
