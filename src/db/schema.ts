@@ -390,7 +390,7 @@ export const usersRelations = relations(users, ({ one }) => ({
   }),
 }));
 
-export const companiesRelations = relations(companies, ({ one }) => ({
+export const companiesRelations = relations(companies, ({ one, many }) => ({
   org: one(organizations, {
     fields: [companies.orgId],
     references: [organizations.id],
@@ -399,6 +399,8 @@ export const companiesRelations = relations(companies, ({ one }) => ({
     fields: [companies.ownerId],
     references: [users.id],
   }),
+  contacts: many(contacts),
+  deals: many(deals),
 }));
 
 export const contactsRelations = relations(contacts, ({ one }) => ({
