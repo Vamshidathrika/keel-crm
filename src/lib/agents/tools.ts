@@ -231,6 +231,14 @@ export async function toolProposeAction(
   runId: string | null,
   action: ProposedAction
 ): Promise<AgentToolResult> {
+  const payloadWithMeta = {
+    ...action.actionPayload,
+    riskTier: action.riskTier || "medium",
+    beforeState: action.beforeState || null,
+    proposedState: action.proposedState || null,
+    provenance: action.provenance || { source: "agent_inference", timestamp: new Date().toISOString() },
+  };
+
   const [item] = await db
     .insert(agentActionQueue)
     .values({
@@ -240,7 +248,7 @@ export async function toolProposeAction(
       title: action.title,
       description: action.description,
       actionType: action.actionType,
-      actionPayload: action.actionPayload,
+      actionPayload: payloadWithMeta,
       severity: action.severity || "info",
       status: "pending",
     })
@@ -248,7 +256,7 @@ export async function toolProposeAction(
 
   return {
     status: "success",
-    summary: `Queued action for review: "${action.title}"`,
+    summary: `Queued action for review: "${action.title}" [Risk: ${(action.riskTier || "medium").toUpperCase()}]`,
     data: { actionId: item.id },
   };
 }

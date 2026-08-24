@@ -25,6 +25,14 @@ export interface ProposedAction {
   actionType: "create_task" | "update_deal_health" | "adjust_probability" | "draft_proposal" | "tag_entity" | "reassign_owner" | "move_stage" | "trigger_webhook" | "custom";
   actionPayload: Record<string, any>;
   severity?: ActionSeverity;
+  riskTier?: "low" | "medium" | "high";
+  beforeState?: Record<string, any>;
+  proposedState?: Record<string, any>;
+  provenance?: {
+    source: string;
+    id?: string;
+    snippet?: string;
+  };
 }
 
 export interface AgentRunOutput {
