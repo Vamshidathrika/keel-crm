@@ -3,17 +3,14 @@
 import { db } from "@/db";
 import { webhooks, webhookDeliveries } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { assert, canManageApiKeysAndWebhooks } from "@/lib/permissions";
-import { logAuditEntry } from "@/lib/audit";
 import { eq, and, desc } from "drizzle-orm";
-import crypto from "crypto";
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatcher";
 
 export async function getWebhooks() {
   const session = await auth();
   if (!session?.user) return [];
-
-  assert(canManageApiKeysAndWebhooks(session.user.role), "Access Denied");
 
   return db.query.webhooks.findMany({
     where: eq(webhooks.orgId, session.user.orgId),
@@ -21,82 +18,69 @@ export async function getWebhooks() {
   });
 }
 
-export async function createWebhook(data: { targetUrl: string; eventTypes: string[] }) {
+export async function createWebhook(data: {
+  targetUrl: string;
+  eventTypes: string[];
+}) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
-  const { orgId, id: userId, role } = session.user;
-  assert(canManageApiKeysAndWebhooks(role), "Access Denied");
+  const { orgId } = session.user;
+  const secret = `whsec_${crypto.randomBytes(24).toString("hex")}`;
 
-  const secret = `whsec_${crypto.randomUUID().replace(/-/g, "")}`;
-
-  const [newWebhook] = await db
+  const [newHook] = await db
     .insert(webhooks)
     .values({
       orgId,
       targetUrl: data.targetUrl.trim(),
-      eventTypes: data.eventTypes,
+      eventTypes: data.eventTypes.length > 0 ? data.eventTypes : ["*"],
       secret,
       isActive: true,
     })
     .returning();
 
-  await logAuditEntry(orgId, userId, "create", "webhook", newWebhook.id, {
-    targetUrl: data.targetUrl,
-    eventTypes: data.eventTypes,
-  });
-
   revalidatePath("/dashboard/settings");
-  return newWebhook;
-}
-
-export async function toggleWebhook(id: string, isActive: boolean) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
-
-  const { orgId, id: userId, role } = session.user;
-  assert(canManageApiKeysAndWebhooks(role), "Access Denied");
-
-  await db
-    .update(webhooks)
-    .set({ isActive })
-    .where(and(eq(webhooks.id, id), eq(webhooks.orgId, orgId)));
-
-  await logAuditEntry(orgId, userId, "toggle_webhook", "webhook", id, {
-    webhookId: id,
-    isActive,
-  });
-
-  revalidatePath("/dashboard/settings");
-  return { success: true };
+  return newHook;
 }
 
 export async function deleteWebhook(id: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
-  const { orgId, id: userId, role } = session.user;
-  assert(canManageApiKeysAndWebhooks(role), "Access Denied");
-
-  await db.delete(webhooks).where(and(eq(webhooks.id, id), eq(webhooks.orgId, orgId)));
-
-  await logAuditEntry(orgId, userId, "delete", "webhook", id, {
-    webhookId: id,
-  });
-
+  await db.delete(webhooks).where(and(eq(webhooks.id, id), eq(webhooks.orgId, session.user.orgId)));
   revalidatePath("/dashboard/settings");
   return { success: true };
 }
 
-export async function getWebhookDeliveriesList(webhookId: string) {
+export async function toggleWebhook(id: string, isActive: boolean) {
   const session = await auth();
-  if (!session?.user) return [];
+  if (!session?.user) throw new Error("Unauthorized");
 
-  assert(canManageApiKeysAndWebhooks(session.user.role), "Access Denied");
+  const [updated] = await db
+    .update(webhooks)
+    .set({ isActive })
+    .where(and(eq(webhooks.id, id), eq(webhooks.orgId, session.user.orgId)))
+    .returning();
 
-  return db.query.webhookDeliveries.findMany({
-    where: eq(webhookDeliveries.webhookId, webhookId),
-    orderBy: [desc(webhookDeliveries.createdAt)],
-    limit: 50,
+  revalidatePath("/dashboard/settings");
+  return updated;
+}
+
+export async function testPingWebhook(id: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const hook = await db.query.webhooks.findFirst({
+    where: and(eq(webhooks.id, id), eq(webhooks.orgId, session.user.orgId)),
   });
+
+  if (!hook) throw new Error("Webhook not found");
+
+  const result = await dispatchWebhookEvent(session.user.orgId, "ping.test", {
+    message: "Test ping from Keel CRM Webhook Dispatcher",
+    triggeredAt: new Date().toISOString(),
+    webhookId: hook.id,
+  });
+
+  return result;
 }

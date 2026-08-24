@@ -4,6 +4,7 @@ import { searchCompaniesTool, createCompanyTool, enrichCompanyTool } from "./com
 import { createTaskTool, completeTaskTool, logActivityTool } from "./tasks-hands";
 import { createQuotationTool, createInvoiceTool } from "./billing-hands";
 import { getPipelineMetricsTool } from "./analytics-hands";
+import { triggerConnectedAppTool, sendClientMessageTool } from "./integrations-hands";
 
 /**
  * Complete suite of LangChain Tools ("Hands") enabling the AI agent
@@ -36,6 +37,10 @@ export const allAgentHands = [
 
   // Analytics & Forecasts
   getPipelineMetricsTool,
+
+  // Connected Apps & Client Messaging
+  triggerConnectedAppTool,
+  sendClientMessageTool,
 ];
 
 /**
@@ -59,4 +64,6 @@ export {
   createQuotationTool,
   createInvoiceTool,
   getPipelineMetricsTool,
+  triggerConnectedAppTool,
+  sendClientMessageTool,
 };
