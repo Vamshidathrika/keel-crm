@@ -241,12 +241,15 @@ export default function DashboardClient({
             <Sparkles className="w-3.5 h-3.5 animate-pulse" />
             Morning AI Brief
           </Button>
-          <Link href={selectedPipelineId ? `/dashboard/deals?pipelineId=${selectedPipelineId}` : "/dashboard/deals"}>
+          <Link
+            href={selectedPipelineId ? `/dashboard/deals?pipelineId=${selectedPipelineId}` : "/dashboard/deals"}
+            prefetch={true}
+          >
             <Button size="sm" variant="outline" className="text-xs border-border/80 hover:border-primary/30 shadow-xs">
               Deals ({activeDeals.length})
             </Button>
           </Link>
-          <Link href="/dashboard/contacts">
+          <Link href="/dashboard/contacts" prefetch={true}>
             <Button size="sm" variant="outline" className="text-xs border-border/80 hover:border-primary/30 shadow-xs">
               Contacts
             </Button>

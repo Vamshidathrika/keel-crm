@@ -23,6 +23,8 @@ import {
   MessageCircle,
   Bot,
   Sparkles,
+  Target,
+  ListOrdered,
 } from "lucide-react";
 import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
 
@@ -60,6 +62,8 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
   // Business OS group links
   const businessOsLinks = [
     { href: "/dashboard/growth", label: "Growth & Flywheel", icon: TrendingUp },
+    { href: "/dashboard/quotas", label: "Quotas & Commission", icon: Target },
+    { href: "/dashboard/cadences", label: "Sales Cadences", icon: ListOrdered },
     { href: "/dashboard/agent-hub", label: "Agent Control Hub", icon: Bot },
     { href: "/dashboard/deals", label: "CRM & Leads", icon: DollarSign },
     { href: "/dashboard/products", label: "Products & Catalog", icon: Package },
@@ -98,6 +102,7 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
           return (
             <Link
               href={overviewLink.href}
+              prefetch={true}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-md transition-colors",
                 isActive
@@ -128,6 +133,7 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={true}
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                   isActive
@@ -158,6 +164,7 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
                 <Link
                   key={link.href}
                   href={link.href}
+                  prefetch={true}
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                     isActive
@@ -187,6 +194,7 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
         return (
           <Link
             href={billingLink.href}
+            prefetch={true}
             className={cn(
               "flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-md transition-colors",
               isActive
@@ -207,6 +215,7 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
         return (
           <Link
             href={settingsLink.href}
+            prefetch={true}
             className={cn(
               "flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md transition-colors",
               isActive

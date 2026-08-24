@@ -1261,5 +1261,177 @@ export type ReferralConversion = typeof referralConversions.$inferSelect;
 export type PriceBook = typeof priceBooks.$inferSelect;
 export type PriceBookEntry = typeof priceBookEntries.$inferSelect;
 
+// ==========================================
+// 🏢 ENTERPRISE CRM GOVERNANCE & SALES SUITE
+// ==========================================
+
+export const salesQuotas = sqliteTable(
+  "sales_quotas",
+  {
+    id: id("qta"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    period: text("period").notNull(), // e.g. "2026-Q3"
+    targetRevenue: real("target_revenue").notNull().default(1000000),
+    currency: text("currency").notNull().default("INR"),
+    commissionRatePercent: real("commission_rate_percent").notNull().default(8),
+    bonusThreshold: real("bonus_threshold").notNull().default(1200000),
+    bonusRatePercent: real("bonus_rate_percent").notNull().default(12),
+    ...timestamps,
+  },
+  (t) => [
+    index("sales_quotas_org_idx").on(t.orgId),
+    index("sales_quotas_user_period_idx").on(t.userId, t.period),
+  ]
+);
+
+export const dealApprovals = sqliteTable(
+  "deal_approvals",
+  {
+    id: id("apv"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    dealId: text("deal_id").notNull().references(() => deals.id, { onDelete: "cascade" }),
+    requestedById: text("requested_by_id").notNull().references(() => users.id),
+    reviewedById: text("reviewed_by_id").references(() => users.id),
+    approvalType: text("approval_type", { enum: ["discount_override", "stage_gate", "credit_term"] }).notNull().default("discount_override"),
+    discountPercent: real("discount_percent").notNull().default(0),
+    status: text("status", { enum: ["pending", "approved", "rejected"] }).notNull().default("pending"),
+    requestNotes: text("request_notes"),
+    reviewNotes: text("review_notes"),
+    reviewedAt: text("reviewed_at"),
+    ...timestamps,
+  },
+  (t) => [
+    index("deal_approvals_org_idx").on(t.orgId),
+    index("deal_approvals_deal_idx").on(t.dealId),
+    index("deal_approvals_status_idx").on(t.orgId, t.status),
+  ]
+);
+
+export const salesCadences = sqliteTable(
+  "sales_cadences",
+  {
+    id: id("cad"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    targetAudience: text("target_audience").notNull().default("Inbound Leads"),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [index("sales_cadences_org_idx").on(t.orgId)]
+);
+
+export const cadenceSteps = sqliteTable(
+  "cadence_steps",
+  {
+    id: id("cds"),
+    cadenceId: text("cadence_id").notNull().references(() => salesCadences.id, { onDelete: "cascade" }),
+    stepNumber: integer("step_number").notNull(),
+    dayOffset: integer("day_offset").notNull().default(1),
+    type: text("type", { enum: ["email", "call", "whatsapp", "task"] }).notNull().default("email"),
+    title: text("title").notNull(),
+    instruction: text("instruction").notNull(),
+    cannedTemplate: text("canned_template"),
+    ...timestamps,
+  },
+  (t) => [index("cadence_steps_cadence_idx").on(t.cadenceId)]
+);
+
+export const cadenceEnrollments = sqliteTable(
+  "cadence_enrollments",
+  {
+    id: id("cde"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    cadenceId: text("cadence_id").notNull().references(() => salesCadences.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
+    dealId: text("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    assignedUserId: text("assigned_user_id").references(() => users.id),
+    currentStep: integer("current_step").notNull().default(1),
+    status: text("status", { enum: ["in_progress", "completed", "paused"] }).notNull().default("in_progress"),
+    nextTaskDueAt: text("next_task_due_at"),
+    ...timestamps,
+  },
+  (t) => [
+    index("cadence_enrollments_org_idx").on(t.orgId),
+    index("cadence_enrollments_status_idx").on(t.orgId, t.status),
+  ]
+);
+
+export const territoryRules = sqliteTable(
+  "territory_rules",
+  {
+    id: id("try"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    regions: text("regions", { mode: "json" }).$type<string[]>().notNull().default([]),
+    minDealValue: real("min_deal_value").notNull().default(0),
+    assignedUserIds: text("assigned_user_ids", { mode: "json" }).$type<string[]>().notNull().default([]),
+    lastAssignedIndex: integer("last_assigned_index").notNull().default(0),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [index("territory_rules_org_idx").on(t.orgId)]
+);
+
+export const competitorBattlecards = sqliteTable(
+  "competitor_battlecards",
+  {
+    id: id("crd"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    competitorName: text("competitor_name").notNull(),
+    pricingComparison: text("pricing_comparison"),
+    ourStrengths: text("our_strengths", { mode: "json" }).$type<string[]>().notNull().default([]),
+    theirWeaknesses: text("their_weaknesses", { mode: "json" }).$type<string[]>().notNull().default([]),
+    objectionHandlers: text("objection_handlers", { mode: "json" }).$type<{ objection: string; response: string }[]>().notNull().default([]),
+    ...timestamps,
+  },
+  (t) => [index("battlecards_org_idx").on(t.orgId)]
+);
+
+// Relations
+export const salesQuotasRelations = relations(salesQuotas, ({ one }) => ({
+  org: one(organizations, { fields: [salesQuotas.orgId], references: [organizations.id] }),
+  user: one(users, { fields: [salesQuotas.userId], references: [users.id] }),
+}));
+
+export const dealApprovalsRelations = relations(dealApprovals, ({ one }) => ({
+  org: one(organizations, { fields: [dealApprovals.orgId], references: [organizations.id] }),
+  deal: one(deals, { fields: [dealApprovals.dealId], references: [deals.id] }),
+  requestedBy: one(users, { fields: [dealApprovals.requestedById], references: [users.id] }),
+  reviewedBy: one(users, { fields: [dealApprovals.reviewedById], references: [users.id] }),
+}));
+
+export const salesCadencesRelations = relations(salesCadences, ({ one, many }) => ({
+  org: one(organizations, { fields: [salesCadences.orgId], references: [organizations.id] }),
+  steps: many(cadenceSteps),
+  enrollments: many(cadenceEnrollments),
+}));
+
+export const cadenceStepsRelations = relations(cadenceSteps, ({ one }) => ({
+  cadence: one(salesCadences, { fields: [cadenceSteps.cadenceId], references: [salesCadences.id] }),
+}));
+
+export const cadenceEnrollmentsRelations = relations(cadenceEnrollments, ({ one }) => ({
+  org: one(organizations, { fields: [cadenceEnrollments.orgId], references: [organizations.id] }),
+  cadence: one(salesCadences, { fields: [cadenceEnrollments.cadenceId], references: [salesCadences.id] }),
+  contact: one(contacts, { fields: [cadenceEnrollments.contactId], references: [contacts.id] }),
+  deal: one(deals, { fields: [cadenceEnrollments.dealId], references: [deals.id] }),
+  assignedUser: one(users, { fields: [cadenceEnrollments.assignedUserId], references: [users.id] }),
+}));
+
+export const competitorBattlecardsRelations = relations(competitorBattlecards, ({ one }) => ({
+  org: one(organizations, { fields: [competitorBattlecards.orgId], references: [organizations.id] }),
+}));
+
+export type SalesQuota = typeof salesQuotas.$inferSelect;
+export type DealApproval = typeof dealApprovals.$inferSelect;
+export type SalesCadence = typeof salesCadences.$inferSelect;
+export type CadenceStep = typeof cadenceSteps.$inferSelect;
+export type CadenceEnrollment = typeof cadenceEnrollments.$inferSelect;
+export type TerritoryRule = typeof territoryRules.$inferSelect;
+export type CompetitorBattlecard = typeof competitorBattlecards.$inferSelect;
+
+
 
 

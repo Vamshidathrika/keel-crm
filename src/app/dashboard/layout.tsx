@@ -30,6 +30,33 @@ import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
 const CopilotAssistant = dynamicImport(() => import("@/components/copilot-assistant"));
 const SearchCommand = dynamicImport(() => import("@/components/search-command"));
 
+// In-memory cache with short TTL so screen transitions inside dashboard don't re-query layout data
+const layoutCache = new Map<string, { org: any; widgetRows: any[]; timestamp: number }>();
+const CACHE_TTL_MS = 60 * 1000;
+
+async function getCachedOrgLayoutData(orgId: string) {
+  const cached = layoutCache.get(orgId);
+  const now = Date.now();
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return { org: cached.org, widgetRows: cached.widgetRows };
+  }
+
+  const [org, widgetRows] = await Promise.all([
+    db.query.organizations.findFirst({
+      where: eq(organizations.id, orgId),
+    }),
+    db.query.orgWidgets.findMany({
+      where: and(
+        eq(orgWidgets.orgId, orgId),
+        eq(orgWidgets.isEnabled, true)
+      ),
+    }),
+  ]);
+
+  layoutCache.set(orgId, { org, widgetRows, timestamp: now });
+  return { org, widgetRows };
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({
@@ -51,23 +78,13 @@ export default async function DashboardLayout({
   // Ensure DB schema initialized (in-memory cached after first run)
   await ensureDatabaseBootstrapped().catch(() => {});
 
-  // Load Organization + Widgets concurrently
+  // Load Organization + Widgets (cached in memory for instant screen transitions)
   let org: any = null;
   let widgetRows: any[] = [];
   try {
-    const [orgResult, widgetResult] = await Promise.all([
-      db.query.organizations.findFirst({
-        where: eq(organizations.id, session.user.orgId),
-      }),
-      db.query.orgWidgets.findMany({
-        where: and(
-          eq(orgWidgets.orgId, session.user.orgId),
-          eq(orgWidgets.isEnabled, true)
-        ),
-      }),
-    ]);
-    org = orgResult;
-    widgetRows = widgetResult;
+    const data = await getCachedOrgLayoutData(session.user.orgId);
+    org = data.org;
+    widgetRows = data.widgetRows;
   } catch (err) {
     console.error("Dashboard DB load error:", err);
   }
