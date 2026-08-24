@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { ensureDatabaseBootstrapped } from "@/db/bootstrap";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "keel-crm-production-auth-secret-key-32chars",
@@ -22,6 +23,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       authorize: async (credentials) => {
         try {
+          await ensureDatabaseBootstrapped();
+
           const email = (credentials?.email as string | undefined)?.trim().toLowerCase();
           const password = credentials?.password as string | undefined;
           if (!email || !password) return null;

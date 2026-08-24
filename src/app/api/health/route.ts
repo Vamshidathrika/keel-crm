@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
+import { ensureDatabaseBootstrapped } from "@/db/bootstrap";
 import { organizations } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,10 @@ export async function GET() {
   const startTime = Date.now();
 
   try {
-    // 1. Verify Database Reachability
+    // 1. Ensure database is initialized
+    await ensureDatabaseBootstrapped();
+
+    // 2. Verify Database Reachability
     const orgCount = await db.select().from(organizations).limit(1);
     const dbLatencyMs = Date.now() - startTime;
 

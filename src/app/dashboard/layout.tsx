@@ -45,6 +45,12 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  // Ensure DB schema initialized
+  try {
+    const { ensureDatabaseBootstrapped } = await import("@/db/bootstrap");
+    await ensureDatabaseBootstrapped();
+  } catch (_e) {}
+
   // Load Organization + Branding
   let org: any = null;
   let widgetRows: any[] = [];
