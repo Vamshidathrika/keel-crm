@@ -22,10 +22,13 @@ import {
 import SidebarNav from "./sidebar-nav";
 import NotificationBell from "@/components/notification-bell";
 import SearchCommandTrigger from "@/components/search-command-trigger";
-import CopilotAssistant from "@/components/copilot-assistant";
-import SearchCommand from "@/components/search-command";
+import dynamicImport from "next/dynamic";
+import { ensureDatabaseBootstrapped } from "@/db/bootstrap";
 import { BrandingProvider } from "@/components/branding-provider";
 import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
+
+const CopilotAssistant = dynamicImport(() => import("@/components/copilot-assistant"));
+const SearchCommand = dynamicImport(() => import("@/components/search-command"));
 
 export const dynamic = "force-dynamic";
 
@@ -45,26 +48,26 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Ensure DB schema initialized
-  try {
-    const { ensureDatabaseBootstrapped } = await import("@/db/bootstrap");
-    await ensureDatabaseBootstrapped();
-  } catch (_e) {}
+  // Ensure DB schema initialized (in-memory cached after first run)
+  await ensureDatabaseBootstrapped().catch(() => {});
 
-  // Load Organization + Branding
+  // Load Organization + Widgets concurrently
   let org: any = null;
   let widgetRows: any[] = [];
   try {
-    org = await db.query.organizations.findFirst({
-      where: eq(organizations.id, session.user.orgId),
-    });
-
-    widgetRows = await db.query.orgWidgets.findMany({
-      where: and(
-        eq(orgWidgets.orgId, session.user.orgId),
-        eq(orgWidgets.isEnabled, true)
-      ),
-    });
+    const [orgResult, widgetResult] = await Promise.all([
+      db.query.organizations.findFirst({
+        where: eq(organizations.id, session.user.orgId),
+      }),
+      db.query.orgWidgets.findMany({
+        where: and(
+          eq(orgWidgets.orgId, session.user.orgId),
+          eq(orgWidgets.isEnabled, true)
+        ),
+      }),
+    ]);
+    org = orgResult;
+    widgetRows = widgetResult;
   } catch (err) {
     console.error("Dashboard DB load error:", err);
   }

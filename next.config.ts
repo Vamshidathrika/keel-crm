@@ -36,6 +36,19 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "@xyflow/react",
+      "date-fns",
+      "@base-ui/react",
+      "sonner",
+      "clsx",
+      "tailwind-merge",
+      "cmdk",
+    ],
+  },
   async headers() {
     return [
       {

@@ -31,29 +31,46 @@ import {
   ShoppingCart,
   CreditCard,
   Puzzle,
+  GitBranch,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { generateDailyBrief } from "@/app/actions/ai";
 import { toast } from "sonner";
 
+type Pipeline = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  stages: {
+    id: string;
+    name: string;
+    order: number;
+    type: "open" | "won" | "lost";
+    probability: number;
+    color: string;
+  }[];
+};
+
 type FunnelItem = { stageName: string; value: number; color: string };
 type ForecastItem = { month: string; value: number };
 type LeaderboardItem = { name: string; value: number };
 
 interface DashboardClientProps {
-  funnelData: FunnelItem[];
-  forecastData: ForecastItem[];
-  leaderboardData: LeaderboardItem[];
-  hotLeads: any[];
-  recentActivities: any[];
-  deals: any[];
-  stages: any[];
+  pipelines?: Pipeline[];
+  funnelData?: FunnelItem[];
+  forecastData?: ForecastItem[];
+  leaderboardData?: LeaderboardItem[];
+  hotLeads?: any[];
+  recentActivities?: any[];
+  deals?: any[];
+  stages?: any[];
   enabledWidgetKeys?: string[];
   businessType?: string;
 }
 
 export default function DashboardClient({
+  pipelines = [],
   funnelData = [],
   forecastData = [],
   leaderboardData = [],
@@ -64,33 +81,77 @@ export default function DashboardClient({
   enabledWidgetKeys = [],
   businessType = "logistics",
 }: DashboardClientProps) {
-  // What-If forecasting state
+  // Selected pipeline state
+  const [selectedPipelineId, setSelectedPipelineId] = React.useState<string>(() => {
+    return pipelines.find((p) => p.isDefault)?.id || pipelines[0]?.id || "";
+  });
+
+  // Ensure selected pipeline stays valid if pipelines list updates
+  React.useEffect(() => {
+    if (pipelines.length > 0 && !pipelines.some((p) => p.id === selectedPipelineId)) {
+      setSelectedPipelineId(pipelines.find((p) => p.isDefault)?.id || pipelines[0]?.id || "");
+    }
+  }, [pipelines, selectedPipelineId]);
+
+  const activePipeline = React.useMemo(() => {
+    return pipelines.find((p) => p.id === selectedPipelineId) || pipelines[0] || null;
+  }, [pipelines, selectedPipelineId]);
+
+  // Stages belonging to the selected pipeline
+  const activeStages = React.useMemo(() => {
+    if (activePipeline?.stages && activePipeline.stages.length > 0) {
+      return [...activePipeline.stages].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
+    return stages;
+  }, [activePipeline, stages]);
+
+  // Deals strictly belonging to the selected pipeline
+  const activeDeals = React.useMemo(() => {
+    if (!selectedPipelineId) return deals;
+    return deals.filter((d) => d.pipelineId === selectedPipelineId);
+  }, [deals, selectedPipelineId]);
+
+  // Funnel data strictly calculated for the selected pipeline
+  const activeFunnelData = React.useMemo(() => {
+    return activeStages.map((st) => {
+      const stageDeals = activeDeals.filter((d) => d.stageId === st.id);
+      const totalValue = stageDeals.reduce((sum, d) => sum + (d.value || 0), 0);
+      return {
+        stageName: st.name,
+        value: totalValue,
+        color: st.color,
+      };
+    });
+  }, [activeStages, activeDeals]);
+
+  // What-If probabilities for the selected pipeline's stages
   const defaultProbabilities = React.useMemo(() => {
     const map: Record<string, number> = {};
-    (stages || []).forEach((st) => {
+    activeStages.forEach((st) => {
       map[st.id] = st.probability ?? 10;
     });
     return map;
-  }, [stages]);
+  }, [activeStages]);
 
   const [probabilities, setProbabilities] = React.useState<Record<string, number>>(defaultProbabilities);
 
-  // Sync state if stages change
+  // Sync state if pipeline / stages change
   React.useEffect(() => {
     setProbabilities(defaultProbabilities);
   }, [defaultProbabilities]);
 
+  // Calculated Forecast strictly for selected pipeline
   const calculatedForecast = React.useMemo(() => {
     const forecastMap: Record<string, number> = {};
-    for (const d of (deals || [])) {
+    for (const d of activeDeals) {
       if (!d.expectedCloseDate) continue;
       const month = d.expectedCloseDate.slice(0, 7); // YYYY-MM
-      const st = (stages || []).find((s) => s.id === d.stageId);
+      const st = activeStages.find((s) => s.id === d.stageId);
       if (!st || st.type === "lost") continue;
       
       const prob = st.type === "won" ? 100 : (probabilities[d.stageId] !== undefined ? probabilities[d.stageId] : (d.probability ?? 10));
       const weight = prob / 100;
-      const weightedVal = d.value * weight;
+      const weightedVal = (d.value || 0) * weight;
       
       forecastMap[month] = (forecastMap[month] || 0) + weightedVal;
     }
@@ -99,13 +160,30 @@ export default function DashboardClient({
       .map(([month, value]) => ({ month, value }))
       .sort((a, b) => a.month.localeCompare(b.month))
       .slice(0, 6);
-  }, [deals, stages, probabilities]);
+  }, [activeDeals, activeStages, probabilities]);
 
   const dynamicForecastTarget = React.useMemo(() => {
     return calculatedForecast.reduce((sum, f) => sum + f.value, 0);
   }, [calculatedForecast]);
 
-  const totalPipeline = funnelData.reduce((sum, f) => sum + f.value, 0);
+  const totalPipeline = React.useMemo(() => {
+    return activeFunnelData.reduce((sum, f) => sum + f.value, 0);
+  }, [activeFunnelData]);
+
+  // Sales Leaderboard strictly for selected pipeline
+  const activeLeaderboard = React.useMemo(() => {
+    const leaderboardMap: Record<string, number> = {};
+    for (const d of activeDeals) {
+      const st = activeStages.find((s) => s.id === d.stageId);
+      if (st?.type !== "won" || !d.owner) continue;
+      const repName = d.owner.name;
+      leaderboardMap[repName] = (leaderboardMap[repName] || 0) + (d.value || 0);
+    }
+
+    return Object.entries(leaderboardMap)
+      .map(([repName, value]) => ({ name: repName, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [activeDeals, activeStages]);
 
   const formatCurrency = (v: number) => {
     return `₹${v.toLocaleString("en-IN")}`;
@@ -113,21 +191,40 @@ export default function DashboardClient({
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="p-6 rounded-xl border border-border/70 bg-gradient-to-br from-card via-card to-muted/20 relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm backdrop-blur">
-        {/* Spotlights for background premium feel */}
-        <div className="absolute -right-16 -top-16 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-ai/5 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="space-y-1 relative z-10">
-          <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            Welcome back to Keel <Zap className="w-5 h-5 text-ai fill-ai/10 animate-bounce" />
-          </h2>
-          <p className="text-xs text-muted-foreground max-w-lg">
-            The AI-native sales copilot keeping every shipping and operations deal on course.
-          </p>
+      {/* Top Header & Small Pipeline Dropdown Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-bold tracking-tight text-foreground">
+            Overview
+          </h1>
+
+          {/* Small Top Dropdown to Select Pipeline */}
+          {pipelines.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-card/90 border border-border/80 rounded-md px-2.5 py-1 shadow-2xs backdrop-blur">
+              <GitBranch className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+                Pipeline:
+              </span>
+              <select
+                value={selectedPipelineId}
+                onChange={(e) => setSelectedPipelineId(e.target.value)}
+                className="bg-transparent text-foreground text-xs font-semibold focus:outline-none cursor-pointer pr-1"
+                aria-label="Select Pipeline"
+              >
+                {pipelines.map((p) => (
+                  <option key={p.id} value={p.id} className="bg-card text-foreground">
+                    {p.name} {p.isDefault ? "(Default)" : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] text-muted-foreground/75 font-mono pl-1 border-l border-border/60">
+                {activeDeals.length} {activeDeals.length === 1 ? "deal" : "deals"}
+              </span>
+            </div>
+          )}
         </div>
-        <div className="flex gap-2 relative z-10 items-center">
+
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             onClick={async () => {
@@ -144,9 +241,9 @@ export default function DashboardClient({
             <Sparkles className="w-3.5 h-3.5 animate-pulse" />
             Morning AI Brief
           </Button>
-          <Link href="/dashboard/deals">
+          <Link href={selectedPipelineId ? `/dashboard/deals?pipelineId=${selectedPipelineId}` : "/dashboard/deals"}>
             <Button size="sm" variant="outline" className="text-xs border-border/80 hover:border-primary/30 shadow-xs">
-              Deals
+              Deals ({activeDeals.length})
             </Button>
           </Link>
           <Link href="/dashboard/contacts">
@@ -155,6 +252,32 @@ export default function DashboardClient({
             </Button>
           </Link>
         </div>
+      </div>
+
+      {/* Welcome Banner */}
+      <div className="p-6 rounded-xl border border-border/70 bg-gradient-to-br from-card via-card to-muted/20 relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm backdrop-blur">
+        {/* Spotlights for background premium feel */}
+        <div className="absolute -right-16 -top-16 w-48 h-48 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-ai/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="space-y-1 relative z-10">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              Welcome back to Keel <Zap className="w-5 h-5 text-ai fill-ai/10 animate-bounce" />
+            </h2>
+            {activePipeline && (
+              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                {activePipeline.name}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground max-w-lg">
+            {activePipeline
+              ? `Showing real-time metrics, funnel, and forecasts for the "${activePipeline.name}" pipeline.`
+              : "The AI-native sales copilot keeping every deal on course."}
+          </p>
+        </div>
+        
         {/* Subtle grid background */}
         <div className="absolute inset-0 bg-grid-white/[0.01] bg-[size:20px_20px] pointer-events-none" />
       </div>
@@ -223,7 +346,7 @@ export default function DashboardClient({
           </CardHeader>
           <CardContent className="p-6 h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={funnelData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={activeFunnelData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <XAxis dataKey="stageName" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis
                   stroke="#888888"
@@ -239,7 +362,7 @@ export default function DashboardClient({
                   formatter={(value: any) => [formatCurrency(value), "Value"]}
                 />
                 <Bar dataKey="value" fill="#2F5DFF" radius={[4, 4, 0, 0]} maxBarSize={45}>
-                  {funnelData.map((entry, index) => (
+                  {activeFunnelData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color || "#2F5DFF"} />
                   ))}
                 </Bar>
@@ -311,9 +434,9 @@ export default function DashboardClient({
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(stages || [])
-              .filter(st => st.type === "open")
-              .map(st => (
+            {(activeStages || [])
+              .filter((st: any) => st.type === "open")
+              .map((st: any) => (
                 <div key={st.id} className="space-y-2 p-3 rounded-lg border border-border/60 bg-muted/5">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-semibold text-foreground flex items-center gap-1.5">
@@ -606,7 +729,7 @@ export default function DashboardClient({
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 space-y-3">
-            {leaderboardData.map((rep, idx) => (
+            {activeLeaderboard.map((rep, idx) => (
               <div
                 key={idx}
                 className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-card text-xs"
@@ -620,9 +743,9 @@ export default function DashboardClient({
                 </span>
               </div>
             ))}
-            {leaderboardData.length === 0 && (
+            {activeLeaderboard.length === 0 && (
               <p className="text-[11px] text-muted-foreground/60 italic text-center py-6">
-                No revenue logged won yet this cycle.
+                No revenue logged won yet in this pipeline.
               </p>
             )}
           </CardContent>

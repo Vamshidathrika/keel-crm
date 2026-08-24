@@ -84,6 +84,7 @@ export const contacts = sqliteTable(
       factors: { label: string; direction: "up" | "down"; explanation: string }[];
       recommendation: string;
     } | null>(),
+    leadType: text("lead_type", { enum: ["spear", "net", "seed"] }).notNull().default("spear"),
     ...timestamps,
   },
   (t) => [
@@ -134,6 +135,7 @@ export const deals = sqliteTable(
     probability: integer("probability").notNull().default(10),
     healthFlags: text("health_flags", { mode: "json" }).$type<string[]>().notNull().default([]),
     source: text("source", { enum: ["manual", "import", "api_bridge", "ai"] }).notNull().default("manual"),
+    leadType: text("lead_type", { enum: ["spear", "net", "seed"] }).notNull().default("spear"),
     lostReason: text("lost_reason"),
     lostReasonNotes: text("lost_reason_notes"),
     closedAt: text("closed_at"),
@@ -1124,5 +1126,140 @@ export type Order = typeof orders.$inferSelect;
 export type Property = typeof properties.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type CustomFieldDefinition = typeof customFieldDefinitions.$inferSelect;
+
+// ==========================================
+// 🚀 GROWTH & BUSINESS EVOLUTION ENGINE TABLES
+// ==========================================
+
+export const accountExpansionSignals = sqliteTable(
+  "account_expansion_signals",
+  {
+    id: id("sig"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    companyId: text("company_id").references(() => companies.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    accountName: text("account_name").notNull(),
+    healthScore: integer("health_score").notNull().default(75),
+    nrrStatus: text("nrr_status", { enum: ["expanding", "stable", "at_risk", "churned"] }).notNull().default("stable"),
+    mrrValue: real("mrr_value").notNull().default(0),
+    expansionPotential: real("expansion_potential").notNull().default(0),
+    expansionReason: text("expansion_reason"),
+    churnRiskFactor: text("churn_risk_factor"),
+    lastTouchpointAt: text("last_touchpoint_at").notNull().default(sql`(current_timestamp)`),
+    renewalDate: text("renewal_date"),
+    status: text("status", { enum: ["active", "deal_created", "mitigated", "dismissed"] }).notNull().default("active"),
+    ...timestamps,
+  },
+  (t) => [
+    index("expansion_signals_org_idx").on(t.orgId),
+    index("expansion_signals_status_idx").on(t.orgId, t.status),
+  ]
+);
+
+export const referralLinks = sqliteTable(
+  "referral_links",
+  {
+    id: id("ref"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    referrerName: text("referrer_name").notNull(),
+    referralCode: text("referral_code").notNull().unique(),
+    slug: text("slug").notNull(),
+    rewardType: text("reward_type", { enum: ["credit", "discount_percent", "commission"] }).notNull().default("discount_percent"),
+    rewardValue: real("reward_value").notNull().default(15), // e.g. 15%
+    clicksCount: integer("clicks_count").notNull().default(0),
+    conversionsCount: integer("conversions_count").notNull().default(0),
+    totalRevenueGenerated: real("total_revenue_generated").notNull().default(0),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [
+    index("referral_links_org_idx").on(t.orgId),
+    index("referral_links_code_idx").on(t.referralCode),
+  ]
+);
+
+export const referralConversions = sqliteTable(
+  "referral_conversions",
+  {
+    id: id("rfc"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    referralLinkId: text("referral_link_id").notNull().references(() => referralLinks.id, { onDelete: "cascade" }),
+    referredContactId: text("referred_contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    dealId: text("deal_id").references(() => deals.id, { onDelete: "set null" }),
+    dealValue: real("deal_value").notNull().default(0),
+    rewardAmount: real("reward_amount").notNull().default(0),
+    rewardStatus: text("reward_status", { enum: ["pending", "credited", "paid"] }).notNull().default("pending"),
+    ...timestamps,
+  },
+  (t) => [
+    index("referral_conversions_org_idx").on(t.orgId),
+    index("referral_conversions_link_idx").on(t.referralLinkId),
+  ]
+);
+
+export const priceBooks = sqliteTable(
+  "price_books",
+  {
+    id: id("pbk"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    currency: text("currency").notNull().default("INR"),
+    isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    ...timestamps,
+  },
+  (t) => [index("price_books_org_idx").on(t.orgId)]
+);
+
+export const priceBookEntries = sqliteTable(
+  "price_book_entries",
+  {
+    id: id("pbe"),
+    priceBookId: text("price_book_id").notNull().references(() => priceBooks.id, { onDelete: "cascade" }),
+    productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+    unitPrice: real("unit_price").notNull().default(0),
+    minMarginPercent: real("min_margin_percent").notNull().default(20),
+    ...timestamps,
+  },
+  (t) => [index("price_book_entries_pb_idx").on(t.priceBookId)]
+);
+
+// Relations for Growth Tables
+export const accountExpansionSignalsRelations = relations(accountExpansionSignals, ({ one }) => ({
+  org: one(organizations, { fields: [accountExpansionSignals.orgId], references: [organizations.id] }),
+  company: one(companies, { fields: [accountExpansionSignals.companyId], references: [companies.id] }),
+  contact: one(contacts, { fields: [accountExpansionSignals.contactId], references: [contacts.id] }),
+}));
+
+export const referralLinksRelations = relations(referralLinks, ({ one, many }) => ({
+  org: one(organizations, { fields: [referralLinks.orgId], references: [organizations.id] }),
+  contact: one(contacts, { fields: [referralLinks.contactId], references: [contacts.id] }),
+  conversions: many(referralConversions),
+}));
+
+export const referralConversionsRelations = relations(referralConversions, ({ one }) => ({
+  org: one(organizations, { fields: [referralConversions.orgId], references: [organizations.id] }),
+  referralLink: one(referralLinks, { fields: [referralConversions.referralLinkId], references: [referralLinks.id] }),
+  deal: one(deals, { fields: [referralConversions.dealId], references: [deals.id] }),
+}));
+
+export const priceBooksRelations = relations(priceBooks, ({ one, many }) => ({
+  org: one(organizations, { fields: [priceBooks.orgId], references: [organizations.id] }),
+  entries: many(priceBookEntries),
+}));
+
+export const priceBookEntriesRelations = relations(priceBookEntries, ({ one }) => ({
+  priceBook: one(priceBooks, { fields: [priceBookEntries.priceBookId], references: [priceBooks.id] }),
+  product: one(products, { fields: [priceBookEntries.productId], references: [products.id] }),
+}));
+
+export type AccountExpansionSignal = typeof accountExpansionSignals.$inferSelect;
+export type ReferralLink = typeof referralLinks.$inferSelect;
+export type ReferralConversion = typeof referralConversions.$inferSelect;
+export type PriceBook = typeof priceBooks.$inferSelect;
+export type PriceBookEntry = typeof priceBookEntries.$inferSelect;
+
 
 

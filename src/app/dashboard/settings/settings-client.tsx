@@ -43,9 +43,21 @@ import { createAutomation, deleteAutomation, toggleAutomation } from "@/app/acti
 import { findDuplicateContacts, mergeContacts } from "@/app/actions/duplicates";
 import { saveBrandingConfig, type BrandingConfig } from "@/server/actions/branding";
 import { toggleWidget } from "@/server/actions/widgets";
-import { WorkflowCanvas } from "@/components/automations/workflow-canvas";
+import dynamic from "next/dynamic";
 import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
 import { toast } from "sonner";
+
+const WorkflowCanvas = dynamic(
+  () => import("@/components/automations/workflow-canvas").then((mod) => mod.WorkflowCanvas),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[480px] w-full flex items-center justify-center border border-border/70 rounded-xl bg-card/50 text-xs text-muted-foreground">
+        Loading visual workflow editor...
+      </div>
+    ),
+  }
+);
 
 type Stage = {
   id: string;

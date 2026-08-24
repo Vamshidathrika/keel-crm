@@ -16,15 +16,16 @@ export default async function DealsPage() {
     redirect("/login");
   }
 
-  const pipelinesData = await getPipelines().catch(() => []);
-  const orgDetails = await getOrgDetails().catch(() => null);
+  const [pipelinesData, orgDetails, contactsData, companiesData] = await Promise.all([
+    getPipelines().catch(() => []),
+    getOrgDetails().catch(() => null),
+    getContacts().catch(() => []),
+    getCompanies().catch(() => []),
+  ]);
 
   // Find default pipeline or use first
   const defaultPipeline = pipelinesData.find((p) => p.isDefault) || pipelinesData[0];
   const dealsData = defaultPipeline ? await getDeals(defaultPipeline.id).catch(() => []) : [];
-
-  const contactsData = await getContacts().catch(() => []);
-  const companiesData = await getCompanies().catch(() => []);
 
   return (
     <DealsClient

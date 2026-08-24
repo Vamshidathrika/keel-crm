@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx tests/e2e/auth-and-dashboard.test.ts",
+    "test": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/e2e/auth-and-dashboard.test.ts && node --env-file=.env.local node_modules/tsx/dist/cli.mjs tests/e2e/growth-engine.test.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts"

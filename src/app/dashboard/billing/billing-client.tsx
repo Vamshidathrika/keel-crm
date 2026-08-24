@@ -66,7 +66,7 @@ export default function BillingClient({ initialBillingData }: BillingClientProps
             <h1 className="text-2xl font-bold tracking-tight">SaaS Subscription & Billing</h1>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              {initialBillingData.subscription.status.toUpperCase()}
+              {(initialBillingData?.subscription?.status || "active").toUpperCase()}
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">

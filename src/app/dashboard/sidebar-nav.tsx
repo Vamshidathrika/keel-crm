@@ -59,29 +59,32 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
 
   // Business OS group links
   const businessOsLinks = [
+    { href: "/dashboard/growth", label: "Growth & Flywheel", icon: TrendingUp },
     { href: "/dashboard/agent-hub", label: "Agent Control Hub", icon: Bot },
     { href: "/dashboard/deals", label: "CRM & Leads", icon: DollarSign },
     { href: "/dashboard/products", label: "Products & Catalog", icon: Package },
     { href: "/dashboard/business-os?tab=sales", label: "Sales & Invoices", icon: FileText, tab: "sales" },
     { href: "/dashboard/business-os?tab=inbox", label: "Inbox & Followups", icon: MessageCircle, tab: "inbox" },
     { href: "/dashboard/business-os?tab=projects", label: "Projects & Portal", icon: Briefcase, tab: "projects" },
-    { href: "/dashboard/business-os?tab=insights", label: "AI Insights", icon: TrendingUp, tab: "insights" },
+    { href: "/dashboard/business-os?tab=insights", label: "AI Insights", icon: Sparkles, tab: "insights" },
   ];
 
   // Industry Vertical widgets
-  const verticalLinks = WIDGET_REGISTRY.filter(
-    (w) =>
-      w.hasNavEntry &&
-      w.navHref &&
-      w.navHref !== "/dashboard" &&
-      !w.navHref.startsWith("/dashboard/deals") &&
-      !w.navHref.startsWith("/dashboard/business-os") &&
-      enabledWidgetKeys.includes(w.key)
-  ).map((w) => ({
-    href: w.navHref!,
-    label: w.navLabel ?? w.label,
-    icon: ICON_MAP[w.navHref!] ?? Package,
-  }));
+  const verticalLinks = React.useMemo(() => {
+    return WIDGET_REGISTRY.filter(
+      (w) =>
+        w.hasNavEntry &&
+        w.navHref &&
+        w.navHref !== "/dashboard" &&
+        !w.navHref.startsWith("/dashboard/deals") &&
+        !w.navHref.startsWith("/dashboard/business-os") &&
+        enabledWidgetKeys.includes(w.key)
+    ).map((w) => ({
+      href: w.navHref!,
+      label: w.navLabel ?? w.label,
+      icon: ICON_MAP[w.navHref!] ?? Package,
+    }));
+  }, [enabledWidgetKeys]);
 
   const settingsLink = { href: "/dashboard/settings", label: "Settings", icon: Settings };
 

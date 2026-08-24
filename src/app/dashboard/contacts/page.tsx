@@ -13,8 +13,10 @@ export default async function ContactsPage() {
     redirect("/login");
   }
 
-  const contactsData = await getContacts().catch(() => []);
-  const companiesData = await getCompanies().catch(() => []);
+  const [contactsData, companiesData] = await Promise.all([
+    getContacts().catch(() => []),
+    getCompanies().catch(() => []),
+  ]);
 
   return (
     <ContactsClient

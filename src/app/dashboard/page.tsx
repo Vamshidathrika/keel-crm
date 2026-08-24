@@ -6,6 +6,9 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import DashboardClient from "./dashboard-client";
 import { redirect } from "next/navigation";
 
+import { getEnabledWidgetKeys } from "@/server/actions/widgets";
+import { getOrgDetails } from "@/server/actions/branding";
+
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
@@ -17,24 +20,51 @@ export default async function DashboardPage() {
   const { orgId } = session.user;
 
   try {
-    // 1. Fetch Pipelines & Stages for the current organization
-    const orgPipelines = await db.query.pipelines.findMany({
-      where: eq(pipelines.orgId, orgId),
-      with: {
-        stages: true,
-      },
-    });
+    // Parallelize all dashboard queries in a single Promise.all batch
+    const [
+      orgPipelines,
+      dealsDb,
+      hotLeads,
+      recentActivities,
+      enabledWidgetKeys,
+      orgDetails,
+    ] = await Promise.all([
+      db.query.pipelines.findMany({
+        where: eq(pipelines.orgId, orgId),
+        with: {
+          stages: true,
+        },
+      }),
+      db.query.deals.findMany({
+        where: eq(deals.orgId, orgId),
+        with: {
+          stage: true,
+          owner: true,
+        },
+      }),
+      db.query.contacts.findMany({
+        where: and(eq(contacts.orgId, orgId), sql`${contacts.score} >= 75`),
+        limit: 5,
+        orderBy: [desc(contacts.score)],
+      }),
+      db.query.activities.findMany({
+        where: eq(activities.orgId, orgId),
+        limit: 5,
+        orderBy: [desc(activities.occurredAt)],
+        with: {
+          actorUserId: {
+            columns: {
+              name: true,
+            },
+          },
+        },
+      }),
+      getEnabledWidgetKeys().catch(() => []),
+      getOrgDetails().catch(() => null),
+    ]);
 
     const defaultPipeline = orgPipelines.find((p) => p.isDefault) || orgPipelines[0];
     const stagesDb = defaultPipeline?.stages || [];
-
-    const dealsDb = await db.query.deals.findMany({
-      where: eq(deals.orgId, orgId),
-      with: {
-        stage: true,
-        owner: true,
-      },
-    });
 
     // Group deal values by stage
     const funnelData = stagesDb.map((st) => {
@@ -78,35 +108,9 @@ export default async function DashboardPage() {
       .map(([repName, value]) => ({ name: repName, value }))
       .sort((a, b) => b.value - a.value);
 
-    // 4. Hot Leads (score >= 75)
-    const hotLeads = await db.query.contacts.findMany({
-      where: and(eq(contacts.orgId, orgId), sql`${contacts.score} >= 75`),
-      limit: 5,
-      orderBy: [desc(contacts.score)],
-    });
-
-    // 5. Recent timeline activities
-    const recentActivities = await db.query.activities.findMany({
-      where: eq(activities.orgId, orgId),
-      limit: 5,
-      orderBy: [desc(activities.occurredAt)],
-      with: {
-        actorUserId: {
-          columns: {
-            name: true,
-          },
-        },
-      },
-    });
-
-    // Load enabled widget keys and business type
-    const { getEnabledWidgetKeys } = await import("@/server/actions/widgets");
-    const { getOrgDetails } = await import("@/server/actions/branding");
-    const enabledWidgetKeys = await getEnabledWidgetKeys().catch(() => []);
-    const orgDetails = await getOrgDetails().catch(() => null);
-
     return (
       <DashboardClient
+        pipelines={(orgPipelines as any) || []}
         funnelData={funnelData}
         forecastData={forecastData}
         leaderboardData={leaderboardData}
@@ -122,6 +126,7 @@ export default async function DashboardPage() {
     console.error("Dashboard render error:", err);
     return (
       <DashboardClient
+        pipelines={[]}
         funnelData={[]}
         forecastData={[]}
         leaderboardData={[]}
