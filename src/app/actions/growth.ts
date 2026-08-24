@@ -32,86 +32,11 @@ export async function getGrowthMetrics() {
     orderBy: [desc(accountExpansionSignals.createdAt)],
   });
 
-  // If no signals exist yet, bootstrap initial sample expansion & churn accounts for realistic experience
-  if (signals.length === 0) {
-    const existingCompanies = await db.query.companies.findMany({
-      where: eq(companies.orgId, orgId),
-      limit: 5,
-    });
-
-    const initialSignals = [
-      {
-        orgId,
-        accountName: existingCompanies[0]?.name || "Acme Logistics Corp",
-        companyId: existingCompanies[0]?.id || null,
-        healthScore: 92,
-        nrrStatus: "expanding" as const,
-        mrrValue: 120000,
-        expansionPotential: 250000,
-        expansionReason: "High shipment volume + 99% SLA adherence for 90 consecutive days. Ready for Enterprise SLA expansion.",
-        lastTouchpointAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-        renewalDate: new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10),
-        status: "active" as const,
-      },
-      {
-        orgId,
-        accountName: existingCompanies[1]?.name || "BlueDart Express Partner",
-        companyId: existingCompanies[1]?.id || null,
-        healthScore: 48,
-        nrrStatus: "at_risk" as const,
-        mrrValue: 85000,
-        expansionPotential: 0,
-        churnRiskFactor: "No account activity or timeline notes in 28 days. Invoice payment delayed by 14 days.",
-        lastTouchpointAt: new Date(Date.now() - 28 * 86400000).toISOString(),
-        renewalDate: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
-        status: "active" as const,
-      },
-      {
-        orgId,
-        accountName: "Tata Global Supply Chain",
-        healthScore: 88,
-        nrrStatus: "expanding" as const,
-        mrrValue: 340000,
-        expansionPotential: 600000,
-        expansionReason: "Requested multi-region warehouse routing add-on package.",
-        lastTouchpointAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-        renewalDate: new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10),
-        status: "active" as const,
-      },
-    ];
-
-    await db.insert(accountExpansionSignals).values(initialSignals);
-    signals = await db.query.accountExpansionSignals.findMany({
-      where: eq(accountExpansionSignals.orgId, orgId),
-      orderBy: [desc(accountExpansionSignals.createdAt)],
-    });
-  }
-
   // 2. Fetch Referral Links
-  let links = await db.query.referralLinks.findMany({
+  const links = await db.query.referralLinks.findMany({
     where: eq(referralLinks.orgId, orgId),
     orderBy: [desc(referralLinks.totalRevenueGenerated)],
   });
-
-  if (links.length === 0) {
-    const initialLink = {
-      orgId,
-      referrerName: "VIP Client Referral Hub",
-      referralCode: "KEEL-VIP-20",
-      slug: "partner-keel-vip",
-      rewardType: "discount_percent" as const,
-      rewardValue: 20,
-      clicksCount: 142,
-      conversionsCount: 8,
-      totalRevenueGenerated: 480000,
-      isActive: true,
-    };
-    await db.insert(referralLinks).values(initialLink);
-    links = await db.query.referralLinks.findMany({
-      where: eq(referralLinks.orgId, orgId),
-      orderBy: [desc(referralLinks.totalRevenueGenerated)],
-    });
-  }
 
   // 3. Fetch Deals for Predictable Revenue Breakdown
   const allDeals = await db.query.deals.findMany({
