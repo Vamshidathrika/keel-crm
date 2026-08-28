@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   Settings,
   GitBranch,
@@ -20,6 +21,8 @@ import {
   Sparkles,
   Palette,
   Puzzle,
+  BookOpen,
+  ExternalLink,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -46,6 +49,9 @@ import { toggleWidget } from "@/server/actions/widgets";
 import dynamic from "next/dynamic";
 import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
 import { toast } from "sonner";
+import { CustomFieldsStudio } from "@/components/custom-fields/custom-fields-studio";
+import { CustomObjectsStudio } from "@/components/custom-objects/custom-objects-studio";
+import { Boxes, Sliders } from "lucide-react";
 
 const WorkflowCanvas = dynamic(
   () => import("@/components/automations/workflow-canvas").then((mod) => mod.WorkflowCanvas),
@@ -541,8 +547,16 @@ export default function SettingsClient({
         </p>
       </div>
 
-      <Tabs defaultValue="pipelines" className="space-y-4">
+      <Tabs defaultValue="custom-fields" className="space-y-4">
         <TabsList className="bg-muted border border-border p-1 gap-1">
+          <TabsTrigger value="custom-fields" className="text-xs gap-1.5">
+            <Sliders className="w-3.5 h-3.5" /> Custom Fields
+          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="custom-objects" className="text-xs gap-1.5">
+              <Boxes className="w-3.5 h-3.5" /> Custom Objects
+            </TabsTrigger>
+          )}
           <TabsTrigger value="pipelines" className="text-xs gap-1.5">
             <GitBranch className="w-3.5 h-3.5" /> Pipelines
           </TabsTrigger>
@@ -760,13 +774,24 @@ export default function SettingsClient({
           <div className="space-y-6">
             {/* API Keys */}
             <Card className="border border-border bg-card">
-              <CardHeader>
-                <CardTitle className="text-sm font-bold flex items-center gap-1.5">
-                  <Key className="w-4 h-4 text-primary" /> API Keys
-                </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Generate scoped bearer tokens (`keel_sk_...`) to ingest webhook events.
-                </CardDescription>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                    <Key className="w-4 h-4 text-primary" /> API Keys &amp; Developer Platform
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Generate scoped bearer tokens (`keel_sk_...`) to ingest webhook events and query REST endpoints.
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link href="/docs" target="_blank">
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                      <BookOpen className="w-3.5 h-3.5 text-primary" />
+                      <span>Swagger UI Docs</span>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                    </Button>
+                  </Link>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <form onSubmit={handleCreateKey} className="flex gap-2 max-w-md">
@@ -797,7 +822,7 @@ export default function SettingsClient({
                           <tr key={k.id} className="hover:bg-muted/10">
                             <td className="px-4 py-3 font-semibold text-foreground">{k.name}</td>
                             <td className="px-4 py-3 font-mono text-muted-foreground">{k.keyPrefix}</td>
-                            <td className="px-4 py-3 font-mono text-muted-foreground">
+                            <td suppressHydrationWarning className="px-4 py-3 font-mono text-muted-foreground">
                               {new Date(k.createdAt).toLocaleDateString()}
                             </td>
                             <td className="px-4 py-3 text-right">
@@ -1203,6 +1228,18 @@ export default function SettingsClient({
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {/* Tab: Custom Fields Studio */}
+        <TabsContent value="custom-fields" className="space-y-4">
+          <CustomFieldsStudio />
+        </TabsContent>
+
+        {/* Tab: Custom Objects Modeler */}
+        {isAdmin && (
+          <TabsContent value="custom-objects" className="space-y-4">
+            <CustomObjectsStudio />
           </TabsContent>
         )}
       </Tabs>

@@ -253,10 +253,10 @@ export default function BusinessOsClient({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-          💼 Business OS Core
+          💼 Keel Enterprise Core OS™
         </h1>
         <p className="text-xs text-muted-foreground mt-1">
-          Tenancy suite — Unified workflow control over quotes, active invoices, customer portals, deliverables, and automated AI assistance.
+          Unified command suite — Integrated enterprise quotations, statutory tax billing, white-labeled client portals, project deliverables, and autonomous AI insights.
         </p>
       </div>
 

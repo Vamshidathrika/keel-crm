@@ -87,9 +87,9 @@ export default function PropertiesClient({ user, initialProperties = [] }: Prope
 
   const filtered = properties.filter(
     (p) =>
-      p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchTerm.toLowerCase())
+      (p.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.location || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.id || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

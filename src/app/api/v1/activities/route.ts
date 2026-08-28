@@ -154,6 +154,9 @@ export async function POST(req: Request) {
         type,
         relatedContactId: matchedContact.id,
         body: bodyText,
+        durationSeconds: Number(durationSec) || null,
+        callOutcome: outcome || null,
+        recordingUrl: body.recordingUrl || null,
         metadata: {
           outcome,
           duration: durationSec,

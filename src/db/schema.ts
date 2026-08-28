@@ -38,9 +38,14 @@ export const users = sqliteTable(
     role: text("role", { enum: ["admin", "manager", "rep"] }).notNull().default("rep"),
     managerId: text("manager_id"),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    portalToken: text("portal_token").unique(),
+    maxCapacity: integer("max_capacity").notNull().default(20),
     ...timestamps,
   },
-  (t) => [uniqueIndex("users_email_idx").on(t.email)]
+  (t) => [
+    uniqueIndex("users_email_idx").on(t.email),
+    uniqueIndex("users_portal_token_idx").on(t.portalToken),
+  ]
 );
 
 // ---------- Companies & Contacts ----------
@@ -54,6 +59,15 @@ export const companies = sqliteTable(
     domain: text("domain"),
     industry: text("industry"),
     website: text("website"),
+    linkedinUrl: text("linkedin_url"),
+    gstin: text("gstin"),
+    employeeCount: text("employee_count"),
+    annualRevenue: real("annual_revenue"),
+    address: text("address"),
+    city: text("city"),
+    state: text("state"),
+    country: text("country"),
+    postalCode: text("postal_code"),
     ownerId: text("owner_id").references(() => users.id),
     tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
     customFields: text("custom_fields", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
@@ -72,8 +86,18 @@ export const contacts = sqliteTable(
     lastName: text("last_name"),
     email: text("email"),
     phone: text("phone"),
+    whatsapp: text("whatsapp"),
     title: text("title"),
+    department: text("department"),
+    seniorityLevel: text("seniority_level", { enum: ["c_level", "vp", "director", "manager", "staff", "other"] }),
+    buyingRole: text("buying_role", { enum: ["decision_maker", "champion", "economic_buyer", "influencer", "blocker", "end_user", "evaluator"] }),
+    preferredChannel: text("preferred_channel", { enum: ["email", "whatsapp", "phone", "sms"] }).default("email"),
+    linkedinUrl: text("linkedin_url"),
+    timezone: text("timezone"),
     city: text("city"),
+    state: text("state"),
+    country: text("country"),
+    postalCode: text("postal_code"),
     source: text("source", { enum: ["manual", "import", "api_bridge", "ai"] }).notNull().default("manual"),
     ownerId: text("owner_id").references(() => users.id),
     tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
@@ -133,12 +157,15 @@ export const deals = sqliteTable(
     ownerId: text("owner_id").references(() => users.id),
     expectedCloseDate: text("expected_close_date"),
     probability: integer("probability").notNull().default(10),
+    forecastCategory: text("forecast_category", { enum: ["pipeline", "best_case", "commit", "closed", "omitted"] }).notNull().default("pipeline"),
+    stagnantDays: integer("stagnant_days").notNull().default(0),
     healthFlags: text("health_flags", { mode: "json" }).$type<string[]>().notNull().default([]),
     source: text("source", { enum: ["manual", "import", "api_bridge", "ai"] }).notNull().default("manual"),
     leadType: text("lead_type", { enum: ["spear", "net", "seed"] }).notNull().default("spear"),
     lostReason: text("lost_reason"),
     lostReasonNotes: text("lost_reason_notes"),
     closedAt: text("closed_at"),
+    customFields: text("custom_fields", { mode: "json" }).$type<Record<string, any>>().notNull().default({}),
     ...timestamps,
   },
   (t) => [
@@ -163,6 +190,9 @@ export const activities = sqliteTable(
     relatedDealId: text("related_deal_id").references(() => deals.id, { onDelete: "cascade" }),
     actorUserId: text("actor_user_id").references(() => users.id),
     body: text("body").notNull(),
+    durationSeconds: integer("duration_seconds"),
+    callOutcome: text("call_outcome", { enum: ["connected", "busy", "left_voicemail", "wrong_number", "no_answer"] }),
+    recordingUrl: text("recording_url"),
     metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>().notNull().default({}),
     source: text("source", { enum: ["manual", "bridge", "ai", "system"] }).notNull().default("manual"),
     externalId: text("external_id"),
@@ -199,6 +229,7 @@ export const tasks = sqliteTable(
     orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
+    priority: text("priority", { enum: ["urgent", "high", "normal", "low"] }).notNull().default("normal"),
     dueDate: text("due_date"),
     isDone: integer("is_done", { mode: "boolean" }).notNull().default(false),
     completedAt: text("completed_at"),
@@ -230,13 +261,18 @@ export const customFieldDefinitions = sqliteTable(
   {
     id: id("cfd"),
     orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-    entityType: text("entity_type", { enum: ["contact", "company", "deal"] }).notNull(),
+    entityType: text("entity_type", { enum: ["contact", "company", "deal", "project", "custom_object"] }).notNull(),
+    objectDefId: text("object_def_id"),
     key: text("key").notNull(),
     label: text("label").notNull(),
-    fieldType: text("field_type", { enum: ["text", "number", "date", "select", "boolean"] }).notNull(),
+    fieldType: text("field_type", { enum: ["text", "number", "currency", "date", "select", "dropdown", "multiselect", "boolean", "url", "user_lookup"] }).notNull().default("text"),
     options: text("options", { mode: "json" }).$type<string[]>().notNull().default([]),
     isRequired: integer("is_required", { mode: "boolean" }).notNull().default(false),
+    defaultValue: text("default_value"),
+    readRoles: text("read_roles", { mode: "json" }).$type<string[]>().default(["admin", "manager", "rep"]),
+    writeRoles: text("write_roles", { mode: "json" }).$type<string[]>().default(["admin", "manager", "rep"]),
     order: integer("order").notNull().default(0),
+    isVisibleInList: integer("is_visible_in_list", { mode: "boolean" }).notNull().default(true),
   },
   (t) => [uniqueIndex("cfd_org_entity_key_idx").on(t.orgId, t.entityType, t.key)]
 );
@@ -327,16 +363,33 @@ export const aiInsightsCache = sqliteTable(
   (t) => [uniqueIndex("ai_cache_entity_kind_idx").on(t.entityType, t.entityId, t.kind)]
 );
 
-// ---------- Automations ----------
+// ---------- Automations Engine (Visual Workflow & DAG Execution) ----------
 
 export const automations = sqliteTable("automations", {
   id: id("auto"),
   orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  description: text("description"),
   trigger: text("trigger", {
-    enum: ["deal_stage_changed", "contact_created", "task_overdue", "activity_created"],
+    enum: [
+      "deal_stage_changed",
+      "deal_created",
+      "deal_won",
+      "deal_lost",
+      "contact_created",
+      "task_overdue",
+      "quote_accepted",
+      "invoice_paid",
+      "activity_created",
+      "webhook_inbound",
+      "custom_record_created",
+      "schedule_cron",
+    ],
   }).notNull(),
+  graphData: text("graph_data", { mode: "json" }).$type<{ nodes: any[]; edges: any[] }>(),
   isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
+  lastRunAt: text("last_run_at"),
+  runCount: integer("run_count").notNull().default(0),
   ...timestamps,
 });
 
@@ -352,9 +405,21 @@ export const automationActions = sqliteTable("automation_actions", {
   id: id("aact"),
   automationId: text("automation_id").notNull().references(() => automations.id, { onDelete: "cascade" }),
   actionType: text("action_type", {
-    enum: ["create_task", "send_notification", "call_webhook", "add_tag"],
+    enum: [
+      "create_task",
+      "send_notification",
+      "call_webhook",
+      "add_tag",
+      "send_whatsapp",
+      "send_email",
+      "update_field",
+      "convert_quote_to_invoice",
+      "invoke_ai_agent",
+      "create_project",
+    ],
   }).notNull(),
   config: text("config", { mode: "json" }).$type<Record<string, unknown>>().notNull().default({}),
+  order: integer("order").notNull().default(0),
 });
 
 export const automationRuns = sqliteTable("automation_runs", {
@@ -362,6 +427,9 @@ export const automationRuns = sqliteTable("automation_runs", {
   automationId: text("automation_id").notNull().references(() => automations.id, { onDelete: "cascade" }),
   status: text("status", { enum: ["success", "failed", "skipped"] }).notNull(),
   detail: text("detail"),
+  triggerPayload: text("trigger_payload", { mode: "json" }).$type<Record<string, any>>(),
+  logs: text("logs", { mode: "json" }).$type<Array<{ step: string; status: "success" | "failed" | "skipped"; message: string; timestamp: string }>>().default([]),
+  executionTimeMs: integer("execution_time_ms").notNull().default(0),
   ranAt: text("ran_at").notNull().default(sql`(current_timestamp)`),
 });
 
@@ -671,8 +739,16 @@ export const quotations = sqliteTable(
     clientId: text("client_id").references(() => clients.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     items: text("items", { mode: "json" }).$type<{ name: string; qty: number; price: number }[]>().notNull().default([]),
+    subtotal: real("subtotal").notNull().default(0),
+    discountAmount: real("discount_amount").notNull().default(0),
+    taxPercent: real("tax_percent").notNull().default(18),
     total: real("total").notNull().default(0),
-    status: text("status", { enum: ["draft", "sent", "accepted", "rejected"] }).notNull().default("draft"),
+    currency: text("currency").notNull().default("INR"),
+    status: text("status", { enum: ["draft", "sent", "accepted", "rejected", "expired"] }).notNull().default("draft"),
+    expiresAt: text("expires_at"),
+    signedAt: text("signed_at"),
+    signerName: text("signer_name"),
+    signerIp: text("signer_ip"),
     pdfUrl: text("pdf_url"),
     ...timestamps,
   },
@@ -687,9 +763,48 @@ export const invoices = sqliteTable(
     dealId: text("deal_id").references(() => deals.id, { onDelete: "set null" }),
     clientId: text("client_id").references(() => clients.id, { onDelete: "cascade" }),
     invoiceNumber: text("invoice_number").notNull(),
+    billType: text("bill_type", { enum: ["tax_invoice", "vendor_bill", "proforma", "credit_note"] }).notNull().default("tax_invoice"),
+    placeOfSupply: text("place_of_supply"),
+    gstin: text("gstin"),
+    pan: text("pan"),
+    billingAddress: text("billing_address"),
+    shippingAddress: text("shipping_address"),
+    poNumber: text("po_number"),
+    eWayBillNumber: text("e_way_bill_number"),
+    accountCategory: text("account_category"),
+    isRcm: integer("is_rcm", { mode: "boolean" }).default(false),
+    paymentTerms: text("payment_terms", { enum: ["due_on_receipt", "net_15", "net_30", "net_60"] }).notNull().default("due_on_receipt"),
+    currency: text("currency").notNull().default("INR"),
+    subtotal: real("subtotal").notNull().default(0),
+    discountAmount: real("discount_amount").notNull().default(0),
+    taxAmount: real("tax_amount").notNull().default(0),
+    shippingCharges: real("shipping_charges").notNull().default(0),
+    tdsSection: text("tds_section"),
+    tdsRate: real("tds_rate").default(0),
+    tdsAmount: real("tds_amount").default(0),
+    roundOff: real("round_off").default(0),
     amount: real("amount").notNull().default(0),
-    status: text("status", { enum: ["draft", "unpaid", "paid", "overdue"] }).notNull().default("draft"),
+    paidAmount: real("paid_amount").notNull().default(0),
+    lineItems: text("line_items", { mode: "json" }).$type<Array<{
+      name: string;
+      qty: number;
+      unitPrice: number;
+      subtotal: number;
+      description?: string;
+      hsnSac?: string;
+      unit?: string;
+      discountPercent?: number;
+      taxPercent?: number;
+      cgst?: number;
+      sgst?: number;
+      igst?: number;
+      total?: number;
+    }>>().notNull().default([]),
+    notes: text("notes"),
+    termsAndConditions: text("terms_and_conditions"),
+    status: text("status", { enum: ["draft", "unpaid", "partially_paid", "paid", "overdue"] }).notNull().default("draft"),
     dueDate: text("due_date").notNull(),
+    paidAt: text("paid_at"),
     pdfUrl: text("pdf_url"),
     ...timestamps,
   },
@@ -703,12 +818,120 @@ export const payments = sqliteTable(
     orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
     invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "cascade" }),
     amount: real("amount").notNull().default(0),
-    status: text("status", { enum: ["pending", "completed", "failed"] }).notNull().default("pending"),
+    paymentMode: text("payment_mode", {
+      enum: ["upi", "bank_transfer", "neft_rtgs", "cash", "cheque", "credit_card", "gateway"],
+    }).default("bank_transfer"),
+    referenceNumber: text("reference_number"),
+    notes: text("notes"),
+    receiptUrl: text("receipt_url"),
+    status: text("status", { enum: ["pending", "completed", "failed"] }).notNull().default("completed"),
     transactionId: text("transaction_id"),
-    paidAt: text("paid_at"),
+    paidAt: text("paid_at").default(sql`(current_timestamp)`),
     ...timestamps,
   },
   (t) => [index("payments_org_idx").on(t.orgId)]
+);
+
+// ---------- 🏢 Keel Sovereign Fiscal Engine (Plans, Usage Metering, Smart Dunning) ----------
+
+export const pricingPlans = sqliteTable(
+  "pricing_plans",
+  {
+    id: id("ppn"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    code: text("code").notNull(),
+    model: text("model", { enum: ["flat", "tiered", "volume", "metered", "stair_step", "freemium"] }).notNull().default("flat"),
+    billingCycle: text("billing_cycle", { enum: ["monthly", "quarterly", "annual"] }).notNull().default("monthly"),
+    basePrice: real("base_price").notNull().default(0),
+    meteredUnit: text("metered_unit"),
+    pricePerUnit: real("price_per_unit"),
+    trialDays: integer("trial_days").notNull().default(0),
+    currency: text("currency").notNull().default("INR"),
+    taxInclusive: integer("tax_inclusive", { mode: "boolean" }).default(false),
+    status: text("status", { enum: ["active", "archived"] }).notNull().default("active"),
+    ...timestamps,
+  },
+  (t) => [index("pricing_plans_org_idx").on(t.orgId)]
+);
+
+export const dunningRules = sqliteTable(
+  "dunning_rules",
+  {
+    id: id("dnr"),
+    orgId: text("org_id").notNull().unique().references(() => organizations.id, { onDelete: "cascade" }),
+    retryAttempts: integer("retry_attempts").notNull().default(4),
+    retryIntervalDays: text("retry_interval_days", { mode: "json" }).$type<number[]>().notNull().default([1, 3, 5, 7]),
+    emailNotification: integer("email_notification", { mode: "boolean" }).default(true),
+    whatsappNotification: integer("whatsapp_notification", { mode: "boolean" }).default(true),
+    actionOnFailure: text("action_on_failure", { enum: ["cancel", "pause", "downgrade_free"] }).notNull().default("pause"),
+    gracePeriodDays: integer("grace_period_days").notNull().default(7),
+    ...timestamps,
+  },
+  (t) => [index("dunning_rules_org_idx").on(t.orgId)]
+);
+
+export const meteredUsageRecords = sqliteTable(
+  "metered_usage_records",
+  {
+    id: id("usg"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    subscriptionId: text("subscription_id"),
+    meterName: text("meter_name").notNull(),
+    unitsConsumed: real("units_consumed").notNull().default(0),
+    unitPrice: real("unit_price").notNull().default(0),
+    timestamp: text("timestamp").notNull().default(sql`(current_timestamp)`),
+    ...timestamps,
+  },
+  (t) => [index("metered_usage_org_idx").on(t.orgId)]
+);
+
+// ---------- 🇮🇳 Statutory GST Compliance & Sovereign Invoice Customization ----------
+
+export const gstSettings = sqliteTable(
+  "gst_settings",
+  {
+    id: id("gst"),
+    orgId: text("org_id").notNull().unique().references(() => organizations.id, { onDelete: "cascade" }),
+    gstin: text("gstin"),
+    legalName: text("legal_name"),
+    tradeName: text("trade_name"),
+    pan: text("pan"),
+    stateCode: text("state_code").default("36"), // 36 = Telangana
+    stateName: text("state_name").default("Telangana"),
+    isCompositionScheme: integer("is_composition_scheme", { mode: "boolean" }).default(false),
+    isRcmApplicable: integer("is_rcm_applicable", { mode: "boolean" }).default(false),
+    lutNumber: text("lut_number"),
+    bankName: text("bank_name"),
+    accountNumber: text("account_number"),
+    ifscCode: text("ifsc_code"),
+    accountHolderName: text("account_holder_name"),
+    upiId: text("upi_id"),
+    ...timestamps,
+  },
+  (t) => [index("gst_settings_org_idx").on(t.orgId)]
+);
+
+export const invoiceCustomizations = sqliteTable(
+  "invoice_customizations",
+  {
+    id: id("invc"),
+    orgId: text("org_id").notNull().unique().references(() => organizations.id, { onDelete: "cascade" }),
+    templateTheme: text("template_theme", {
+      enum: ["modern_slate", "classic_navy", "minimalist_emerald", "enterprise_dark"],
+    }).default("modern_slate"),
+    primaryColor: text("primary_color").default("#3b82f6"),
+    companyLogoUrl: text("company_logo_url"),
+    showTaxBreakup: integer("show_tax_breakup", { mode: "boolean" }).default(true),
+    showHsnSac: integer("show_hsn_sac", { mode: "boolean" }).default(true),
+    showBankDetails: integer("show_bank_details", { mode: "boolean" }).default(true),
+    showUpiQr: integer("show_upi_qr", { mode: "boolean" }).default(true),
+    termsAndConditions: text("terms_and_conditions").default("1. Payment is due within standard terms.\n2. Goods once sold are not returnable.\n3. Subject to local jurisdiction."),
+    declarationText: text("declaration_text").default("We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct."),
+    footerNote: text("footer_note").default("Thank you for your business!"),
+    ...timestamps,
+  },
+  (t) => [index("inv_customizations_org_idx").on(t.orgId)]
 );
 
 export const messageRecords = sqliteTable(
@@ -736,8 +959,10 @@ export const followups = sqliteTable(
     contactId: text("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
+    priority: text("priority", { enum: ["urgent", "high", "normal", "low"] }).notNull().default("normal"),
     dueDate: text("due_date").notNull(),
     status: text("status", { enum: ["pending", "completed", "overdue"] }).notNull().default("pending"),
+    completedAt: text("completed_at"),
     ...timestamps,
   },
   (t) => [index("followups_org_idx").on(t.orgId)]
@@ -752,6 +977,9 @@ export const projects = sqliteTable(
     dealId: text("deal_id").references(() => deals.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     status: text("status", { enum: ["planning", "active", "completed", "on_hold"] }).notNull().default("planning"),
+    progressPercent: integer("progress_percent").notNull().default(0),
+    startDate: text("start_date"),
+    targetDate: text("target_date"),
     budget: real("budget").notNull().default(0),
     ...timestamps,
   },
@@ -878,6 +1106,9 @@ export const agentRuns = sqliteTable(
     summary: text("summary").notNull(),
     toolsInvoked: text("tools_invoked", { mode: "json" }).$type<Array<{ tool: string; params: any; result: any }>>().notNull().default([]),
     executionDurationMs: integer("execution_duration_ms"),
+    latencyMs: integer("latency_ms"),
+    tokensUsed: integer("tokens_used"),
+    modelUsed: text("model_used"),
     createdAt: text("created_at").notNull().default(sql`(current_timestamp)`),
   },
   (t) => [
@@ -940,8 +1171,12 @@ export const shipments = sqliteTable(
     dealId: text("deal_id").references(() => deals.id, { onDelete: "set null" }),
     dealName: text("deal_name").notNull(),
     carrier: text("carrier").notNull(),
+    trackingNumber: text("tracking_number"),
+    vesselOrFlight: text("vessel_or_flight"),
     origin: text("origin").notNull(),
     destination: text("destination").notNull(),
+    weightKg: real("weight_kg"),
+    volumeCbm: real("volume_cbm"),
     eta: text("eta").notNull(),
     status: text("status").notNull().default("Booking Confirmed"),
     mode: text("mode").notNull().default("Ocean Freight"),
@@ -960,6 +1195,9 @@ export const kycRecords = sqliteTable(
     customer: text("customer").notNull(),
     docType: text("doc_type").notNull(),
     complianceStatus: text("compliance_status").notNull().default("Pending Review"),
+    riskScore: integer("risk_score").notNull().default(0),
+    expiresAt: text("expires_at"),
+    verifiedBy: text("verified_by"),
     regulatoryLogs: text("regulatory_logs"),
     ...timestamps,
   },
@@ -975,6 +1213,10 @@ export const appointments = sqliteTable(
     clientName: text("client_name").notNull(),
     serviceType: text("service_type").notNull(),
     dateTime: text("date_time").notNull(),
+    durationMinutes: integer("duration_minutes").notNull().default(30),
+    meetingUrl: text("meeting_url"),
+    location: text("location"),
+    timezone: text("timezone").notNull().default("Asia/Kolkata"),
     status: text("status").notNull().default("Scheduled"),
     notes: text("notes"),
     ...timestamps,
@@ -992,6 +1234,9 @@ export const orders = sqliteTable(
     clientName: text("client_name").notNull(),
     itemsSummary: text("items_summary").notNull(),
     totalAmount: text("total_amount").notNull(),
+    currency: text("currency").notNull().default("INR"),
+    paymentStatus: text("payment_status", { enum: ["unpaid", "paid", "refunded"] }).notNull().default("unpaid"),
+    shippingAddress: text("shipping_address"),
     fulfillmentStatus: text("fulfillment_status").notNull().default("Processing"),
     deliveryEta: text("delivery_eta"),
     ...timestamps,
@@ -1007,6 +1252,10 @@ export const properties = sqliteTable(
     title: text("title").notNull(),
     location: text("location").notNull(),
     price: text("price").notNull(),
+    sqft: integer("sqft"),
+    bedrooms: integer("bedrooms"),
+    bathrooms: integer("bathrooms"),
+    amenities: text("amenities", { mode: "json" }).$type<string[]>().notNull().default([]),
     type: text("type").notNull().default("Commercial"),
     status: text("status").notNull().default("Available"),
     buyerOrTenant: text("buyer_or_tenant"),
@@ -1108,6 +1357,9 @@ export type Client = typeof clients.$inferSelect;
 export type Quotation = typeof quotations.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type PricingPlan = typeof pricingPlans.$inferSelect;
+export type DunningRule = typeof dunningRules.$inferSelect;
+export type MeteredUsageRecord = typeof meteredUsageRecords.$inferSelect;
 export type MessageRecord = typeof messageRecords.$inferSelect;
 export type FollowUp = typeof followups.$inferSelect;
 export type Project = typeof projects.$inferSelect;
@@ -1125,7 +1377,6 @@ export type Appointment = typeof appointments.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type Property = typeof properties.$inferSelect;
 export type Product = typeof products.$inferSelect;
-export type CustomFieldDefinition = typeof customFieldDefinitions.$inferSelect;
 
 // ==========================================
 // 🚀 GROWTH & BUSINESS EVOLUTION ENGINE TABLES
@@ -1424,6 +1675,61 @@ export const competitorBattlecardsRelations = relations(competitorBattlecards, (
   org: one(organizations, { fields: [competitorBattlecards.orgId], references: [organizations.id] }),
 }));
 
+// ---------- Dynamic Custom Objects (Universal Entity Modeler) ----------
+
+export const customObjectDefinitions = sqliteTable(
+  "custom_object_definitions",
+  {
+    id: id("cod"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    singularName: text("singular_name").notNull(),
+    pluralName: text("plural_name").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description"),
+    icon: text("icon").notNull().default("Folder"),
+    primaryFieldKey: text("primary_field_key").notNull().default("title"),
+    menuPosition: integer("menu_position").notNull().default(10),
+    ...timestamps,
+  },
+  (t) => [
+    index("custom_obj_defs_org_idx").on(t.orgId),
+    index("custom_obj_defs_slug_idx").on(t.orgId, t.slug),
+  ]
+);
+
+export const customObjectRecords = sqliteTable(
+  "custom_object_records",
+  {
+    id: id("cor"),
+    orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    objectDefId: text("object_def_id").notNull().references(() => customObjectDefinitions.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    attributes: text("attributes", { mode: "json" }).$type<Record<string, any>>().notNull().default({}),
+    linkedContactId: text("linked_contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    linkedDealId: text("linked_deal_id").references(() => deals.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    index("custom_obj_records_org_idx").on(t.orgId),
+    index("custom_obj_records_def_idx").on(t.objectDefId),
+    index("custom_obj_records_contact_idx").on(t.linkedContactId),
+    index("custom_obj_records_deal_idx").on(t.linkedDealId),
+  ]
+);
+
+export const customObjectDefinitionsRelations = relations(customObjectDefinitions, ({ one, many }) => ({
+  org: one(organizations, { fields: [customObjectDefinitions.orgId], references: [organizations.id] }),
+  records: many(customObjectRecords),
+  fields: many(customFieldDefinitions),
+}));
+
+export const customObjectRecordsRelations = relations(customObjectRecords, ({ one }) => ({
+  org: one(organizations, { fields: [customObjectRecords.orgId], references: [organizations.id] }),
+  definition: one(customObjectDefinitions, { fields: [customObjectRecords.objectDefId], references: [customObjectDefinitions.id] }),
+  linkedContact: one(contacts, { fields: [customObjectRecords.linkedContactId], references: [contacts.id] }),
+  linkedDeal: one(deals, { fields: [customObjectRecords.linkedDealId], references: [deals.id] }),
+}));
+
 export type SalesQuota = typeof salesQuotas.$inferSelect;
 export type DealApproval = typeof dealApprovals.$inferSelect;
 export type SalesCadence = typeof salesCadences.$inferSelect;
@@ -1431,6 +1737,9 @@ export type CadenceStep = typeof cadenceSteps.$inferSelect;
 export type CadenceEnrollment = typeof cadenceEnrollments.$inferSelect;
 export type TerritoryRule = typeof territoryRules.$inferSelect;
 export type CompetitorBattlecard = typeof competitorBattlecards.$inferSelect;
+export type CustomFieldDefinition = typeof customFieldDefinitions.$inferSelect;
+export type CustomObjectDefinition = typeof customObjectDefinitions.$inferSelect;
+export type CustomObjectRecord = typeof customObjectRecords.$inferSelect;
 
 
 

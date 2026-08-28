@@ -27,18 +27,24 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
 
   const fetchList = async () => {
-    const data = await getNotifications();
-    setList(data as Notification[]);
+    try {
+      const data = await getNotifications();
+      if (Array.isArray(data)) {
+        setList(data as Notification[]);
+      }
+    } catch {
+      // Ignore background network error
+    }
   };
 
   useEffect(() => {
     fetchList();
-    // Poll notifications every 30 seconds for live updates
-    const interval = setInterval(fetchList, 30000);
+    // Poll notifications every 45 seconds for live updates
+    const interval = setInterval(fetchList, 45000);
     return () => clearInterval(interval);
   }, []);
 
-  const unread = list.filter((n) => !n.isRead);
+  const unread = Array.isArray(list) ? list.filter((n) => !n.isRead) : [];
 
   const handleRead = async (id: string) => {
     await markNotificationRead(id);

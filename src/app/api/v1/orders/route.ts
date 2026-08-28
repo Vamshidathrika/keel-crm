@@ -38,14 +38,24 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { clientName, itemsSummary, totalAmount, clientId, fulfillmentStatus = "Processing", deliveryEta } = body;
+    const {
+      clientName,
+      itemsSummary,
+      totalAmount,
+      clientId,
+      currency = "INR",
+      paymentStatus = "unpaid",
+      shippingAddress,
+      fulfillmentStatus = "Processing",
+      deliveryEta,
+    } = body;
 
     if (!clientName || !itemsSummary || totalAmount === undefined) {
       return NextResponse.json({ error: "Fields 'clientName', 'itemsSummary', and 'totalAmount' are required." }, { status: 400 });
     }
 
     const orgId = authResult.orgId!;
-    const orderNumber = `ORD-${Date.now().toString().slice(-6)}`;
+    const orderNumber = body.orderNumber || `ORD-${Date.now().toString().slice(-6)}`;
 
     const [newOrder] = await db
       .insert(orders)
@@ -56,6 +66,9 @@ export async function POST(req: Request) {
         clientName: clientName.trim(),
         itemsSummary: itemsSummary.trim(),
         totalAmount: String(totalAmount),
+        currency,
+        paymentStatus: paymentStatus as any,
+        shippingAddress: shippingAddress?.trim() || null,
         fulfillmentStatus,
         deliveryEta: deliveryEta || null,
       })
@@ -64,7 +77,7 @@ export async function POST(req: Request) {
     await db.insert(activities).values({
       orgId,
       type: "system",
-      body: `Order registered: #${newOrder.orderNumber} for ${clientName} (Total: ₹${totalAmount})`,
+      body: `Order registered: #${newOrder.orderNumber} for ${clientName} (Total: ${currency} ${totalAmount})`,
       source: "bridge",
     });
 

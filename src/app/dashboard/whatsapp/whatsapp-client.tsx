@@ -213,13 +213,13 @@ export default function WhatsappClient({ user, contacts, deals, initialMessages 
                     <div className="p-3.5 border-b flex items-center justify-between bg-muted/10">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-xs">
-                          {activeThread.name.slice(0, 2).toUpperCase()}
+                          {(activeThread.name || "WA").slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-xs font-semibold text-foreground">{activeThread.name}</p>
+                          <p className="text-xs font-semibold text-foreground">{activeThread.name || "Direct Contact"}</p>
                           <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                            {activeThread.phone} • Official Business API
+                            {activeThread.phone || "Active Channel"} • Official Business API
                           </p>
                         </div>
                       </div>

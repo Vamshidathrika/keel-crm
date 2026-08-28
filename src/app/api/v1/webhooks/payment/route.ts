@@ -3,12 +3,38 @@ import { db } from "@/db";
 import { deals, stages, pipelines, invoices, activities, contacts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatcher";
+import { authenticateApiKey } from "@/lib/api/auth";
 
 export async function POST(req: Request) {
   try {
+    const authHeader = req.headers.get("Authorization");
+    const secretHeader = req.headers.get("x-webhook-secret");
+    const configuredSecret = process.env.PAYMENT_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET;
+
+    let authenticatedOrgId: string | null = null;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const authResult = await authenticateApiKey(req);
+      if (!authResult.authorized) {
+        return NextResponse.json({ error: authResult.error || "Unauthorized" }, { status: 401 });
+      }
+      authenticatedOrgId = authResult.orgId || null;
+    } else if (configuredSecret && secretHeader === configuredSecret) {
+      // Validated via shared secret
+    } else if (configuredSecret && secretHeader !== configuredSecret) {
+      return NextResponse.json({ error: "Invalid webhook secret." }, { status: 401 });
+    } else if (!authHeader && !secretHeader) {
+      // In development / testing, fallback to requiring Bearer API key
+      const authResult = await authenticateApiKey(req);
+      if (!authResult.authorized) {
+        return NextResponse.json({ error: "Authentication required via Bearer API key or x-webhook-secret header." }, { status: 401 });
+      }
+      authenticatedOrgId = authResult.orgId || null;
+    }
+
     const body = await req.json();
     const {
-      orgId,
+      orgId = authenticatedOrgId,
       dealId,
       customerEmail,
       amount,
@@ -17,7 +43,9 @@ export async function POST(req: Request) {
       sendClientKickoff = true,
     } = body;
 
-    if (!orgId) {
+    const targetOrgId = authenticatedOrgId || orgId;
+
+    if (!targetOrgId) {
       return NextResponse.json({ error: "Field 'orgId' is required." }, { status: 400 });
     }
 

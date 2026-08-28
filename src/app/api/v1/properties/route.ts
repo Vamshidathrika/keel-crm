@@ -37,7 +37,18 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { title, location, price, type = "Commercial", status = "Available", buyerOrTenant } = body;
+    const {
+      title,
+      location,
+      price,
+      type = "Commercial",
+      status = "Available",
+      sqft,
+      bedrooms,
+      bathrooms,
+      amenities = [],
+      buyerOrTenant,
+    } = body;
 
     if (!title || !location || !price) {
       return NextResponse.json({ error: "Fields 'title', 'location', and 'price' are required." }, { status: 400 });
@@ -52,6 +63,10 @@ export async function POST(req: Request) {
         title: title.trim(),
         location: location.trim(),
         price: String(price),
+        sqft: sqft !== undefined ? Number(sqft) : null,
+        bedrooms: bedrooms !== undefined ? Number(bedrooms) : null,
+        bathrooms: bathrooms !== undefined ? Number(bathrooms) : null,
+        amenities: Array.isArray(amenities) ? amenities : [],
         type,
         status,
         buyerOrTenant: buyerOrTenant || null,

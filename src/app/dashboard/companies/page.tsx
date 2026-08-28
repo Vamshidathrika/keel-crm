@@ -14,5 +14,9 @@ export default async function CompaniesPage() {
 
   const initialCompanies = await getCompanies().catch(() => []);
 
-  return <CompaniesClient initialCompanies={initialCompanies} currentUser={session.user} />;
+  return (
+    <React.Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground">Loading Companies...</div>}>
+      <CompaniesClient initialCompanies={initialCompanies} currentUser={session.user} />
+    </React.Suspense>
+  );
 }

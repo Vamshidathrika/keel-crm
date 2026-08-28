@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Users,
@@ -39,9 +40,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createContact, updateContact, deleteContact, getContactById } from "@/app/actions/contacts";
 import { createActivity } from "@/app/actions/activities";
 import { analyzeTranscript, draftFollowUp, runLeadScoring } from "@/app/actions/ai";
-import ActivityTimeline from "@/components/activity-timeline";
-import ImportWizard from "@/components/import-wizard";
+import { getCustomFieldDefinitions } from "@/app/actions/custom-fields";
+import { DynamicFieldRenderer } from "@/components/custom-fields/dynamic-field-renderer";
+import { CustomFieldDefinition } from "@/db/schema";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
+
+const ActivityTimeline = dynamic(() => import("@/components/activity-timeline"), { ssr: false });
+const ImportWizard = dynamic(() => import("@/components/import-wizard"), { ssr: false });
 
 type Contact = {
   id: string;
@@ -49,8 +55,18 @@ type Contact = {
   lastName: string | null;
   email: string | null;
   phone: string | null;
+  whatsapp?: string | null;
   title: string | null;
+  department?: string | null;
+  seniorityLevel?: string | null;
+  buyingRole?: string | null;
+  preferredChannel?: string | null;
+  linkedinUrl?: string | null;
+  timezone?: string | null;
   city: string | null;
+  state?: string | null;
+  country?: string | null;
+  postalCode?: string | null;
   companyId: string | null;
   source: string;
   ownerId: string | null;
@@ -112,16 +128,47 @@ export default function ContactsClient({
 
   // New Contact states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [createForm, setCreateForm] = useState({
+  const [contactCustomFields, setContactCustomFields] = useState<CustomFieldDefinition[]>([]);
+  const [createForm, setCreateForm] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    whatsapp: string;
+    title: string;
+    department: string;
+    seniorityLevel: string;
+    buyingRole: string;
+    linkedinUrl: string;
+    city: string;
+    state: string;
+    country: string;
+    companyId: string;
+    customFields: Record<string, any>;
+  }>({
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
+    whatsapp: "",
     title: "",
+    department: "",
+    seniorityLevel: "",
+    buyingRole: "",
+    linkedinUrl: "",
     city: "",
+    state: "",
+    country: "",
     companyId: "none",
+    customFields: {},
   });
   const [createLoading, setCreateLoading] = useState(false);
+
+  useEffect(() => {
+    getCustomFieldDefinitions("contact")
+      .then((defs) => setContactCustomFields(defs))
+      .catch(() => {});
+  }, [showCreateDialog]);
 
   // Tag creation state in Drawer
   const [newTagInput, setNewTagInput] = useState("");
@@ -140,12 +187,12 @@ export default function ContactsClient({
   }, [highlightId, contacts]);
 
   const filteredContacts = contacts.filter((c) => {
-    const q = query.toLowerCase();
-    const fullName = `${c.firstName} ${c.lastName || ""}`.toLowerCase();
+    const q = (query || "").toLowerCase();
+    const fullName = `${c.firstName || ""} ${c.lastName || ""}`.toLowerCase();
     const email = (c.email || "").toLowerCase();
     const phone = (c.phone || "").toLowerCase();
     const companyName = (c.company?.name || "").toLowerCase();
-    const tags = c.tags.map((t) => t.toLowerCase());
+    const tags = Array.isArray(c.tags) ? c.tags.map((t) => (t || "").toLowerCase()) : [];
 
     return (
       fullName.includes(q) ||
@@ -192,11 +239,18 @@ export default function ContactsClient({
         lastName: createForm.lastName || undefined,
         email: createForm.email || undefined,
         phone: createForm.phone || undefined,
+        whatsapp: createForm.whatsapp || undefined,
         title: createForm.title || undefined,
+        department: createForm.department || undefined,
+        seniorityLevel: (createForm.seniorityLevel as any) || undefined,
+        buyingRole: (createForm.buyingRole as any) || undefined,
+        linkedinUrl: createForm.linkedinUrl || undefined,
         city: createForm.city || undefined,
+        state: createForm.state || undefined,
+        country: createForm.country || undefined,
         companyId: createForm.companyId === "none" ? undefined : createForm.companyId,
         tags: [],
-        customFields: {},
+        customFields: createForm.customFields,
       };
 
       const newContact = await createContact(payload);
@@ -214,9 +268,17 @@ export default function ContactsClient({
         lastName: "",
         email: "",
         phone: "",
+        whatsapp: "",
         title: "",
+        department: "",
+        seniorityLevel: "",
+        buyingRole: "",
+        linkedinUrl: "",
         city: "",
+        state: "",
+        country: "",
         companyId: "none",
+        customFields: {},
       });
       toast.success("Contact created successfully");
       setSelectedContact(contactWithCompany);
@@ -417,21 +479,21 @@ export default function ContactsClient({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-            <Users className="w-6 h-6 text-primary" /> Contacts
+            <Users className="w-6 h-6 text-primary" /> Key Stakeholders & Contacts
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Manage your network and view unified timelines.
+            Executive stakeholder relationship directory, predictive ICP lead scoring, and unified communication forensics.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleExportCSV} className="text-xs">
-            Export CSV
+            Export Roster
           </Button>
           <Button variant="outline" onClick={() => setShowImportWizard(true)} className="text-xs">
-            Import CSV
+            Bulk Import CSV
           </Button>
           <Button onClick={() => setShowCreateDialog(true)} className="flex items-center gap-1.5 text-xs">
-            <Plus className="w-4 h-4" /> Add Contact
+            <Plus className="w-4 h-4" /> Enroll Key Stakeholder
           </Button>
         </div>
       </div>
@@ -439,10 +501,10 @@ export default function ContactsClient({
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total Contacts", value: contacts.length, icon: Users, color: "text-primary bg-primary/10" },
-          { label: "Hot Leads", value: contacts.filter((c) => c.score >= 75).length, icon: Flame, color: "text-ai bg-ai/10 border-ai/10" },
-          { label: "Warm Leads", value: contacts.filter((c) => c.score >= 45 && c.score < 75).length, icon: Sun, color: "text-amber-500 bg-amber-500/10" },
-          { label: "Cold Leads", value: contacts.filter((c) => c.score < 45).length, icon: Snowflake, color: "text-info bg-info/10" },
+          { label: "Total Executive Network", value: contacts.length, icon: Users, color: "text-primary bg-primary/10" },
+          { label: "High-Intent (Score 75+)", value: contacts.filter((c) => c.score >= 75).length, icon: Flame, color: "text-ai bg-ai/10 border-ai/10" },
+          { label: "Active Nurture (45-74)", value: contacts.filter((c) => c.score >= 45 && c.score < 75).length, icon: Sun, color: "text-amber-500 bg-amber-500/10" },
+          { label: "Dormant / Pipeline Reserve", value: contacts.filter((c) => c.score < 45).length, icon: Snowflake, color: "text-info bg-info/10" },
         ].map((s) => {
           const Icon = s.icon;
           return (
@@ -528,12 +590,24 @@ export default function ContactsClient({
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{c.city || "—"}</td>
                   <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => handleDeleteContact(c.id)}
-                      className="p-1.5 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Link href={`/dashboard/contacts/${c.id}`}>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="h-6 text-[10px] gap-1 text-primary hover:bg-primary/10"
+                        >
+                          <Sparkles className="w-3 h-3 text-primary" />
+                          360° Hub
+                        </Button>
+                      </Link>
+                      <button
+                        onClick={() => handleDeleteContact(c.id)}
+                        className="p-1.5 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -648,6 +722,119 @@ export default function ContactsClient({
               </Select>
             </div>
 
+            {/* Optional Enterprise Details & Qualification */}
+            <details className="group border border-border/80 rounded-lg p-3 bg-muted/20 text-xs">
+              <summary className="font-semibold text-foreground cursor-pointer flex items-center justify-between select-none py-0.5">
+                <span className="flex items-center gap-1.5 text-primary">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  More Details &amp; Qualification (Optional)
+                </span>
+                <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div className="pt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="whatsapp" className="text-[11px]">WhatsApp (E.164)</Label>
+                    <Input
+                      id="whatsapp"
+                      value={createForm.whatsapp}
+                      onChange={(e) => setCreateForm({ ...createForm, whatsapp: e.target.value })}
+                      placeholder="+919876543210"
+                      className="h-8 text-xs"
+                      disabled={createLoading}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="linkedinUrl" className="text-[11px]">LinkedIn URL</Label>
+                    <Input
+                      id="linkedinUrl"
+                      value={createForm.linkedinUrl}
+                      onChange={(e) => setCreateForm({ ...createForm, linkedinUrl: e.target.value })}
+                      placeholder="linkedin.com/in/username"
+                      className="h-8 text-xs"
+                      disabled={createLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="buyingRole" className="text-[11px]">Buying Role (MEDDPICC)</Label>
+                    <select
+                      id="buyingRole"
+                      value={createForm.buyingRole}
+                      onChange={(e) => setCreateForm({ ...createForm, buyingRole: e.target.value })}
+                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground"
+                      disabled={createLoading}
+                    >
+                      <option value="">Select Buying Role</option>
+                      <option value="decision_maker">Decision Maker</option>
+                      <option value="champion">Champion</option>
+                      <option value="economic_buyer">Economic Buyer</option>
+                      <option value="influencer">Influencer</option>
+                      <option value="blocker">Blocker</option>
+                      <option value="evaluator">Evaluator</option>
+                      <option value="end_user">End User</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="seniorityLevel" className="text-[11px]">Seniority Tier</Label>
+                    <select
+                      id="seniorityLevel"
+                      value={createForm.seniorityLevel}
+                      onChange={(e) => setCreateForm({ ...createForm, seniorityLevel: e.target.value })}
+                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground"
+                      disabled={createLoading}
+                    >
+                      <option value="">Select Seniority</option>
+                      <option value="c_level">C-Level Executive</option>
+                      <option value="vp">VP / Head of Dept</option>
+                      <option value="director">Director</option>
+                      <option value="manager">Manager</option>
+                      <option value="staff">Staff / Contributor</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="department" className="text-[11px]">Department</Label>
+                    <Input
+                      id="department"
+                      value={createForm.department}
+                      onChange={(e) => setCreateForm({ ...createForm, department: e.target.value })}
+                      placeholder="e.g. Procurement, Sales"
+                      className="h-8 text-xs"
+                      disabled={createLoading}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="state" className="text-[11px]">State / Region</Label>
+                    <Input
+                      id="state"
+                      value={createForm.state}
+                      onChange={(e) => setCreateForm({ ...createForm, state: e.target.value })}
+                      placeholder="e.g. Telangana, Maharashtra"
+                      className="h-8 text-xs"
+                      disabled={createLoading}
+                    />
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            {/* Dynamic Custom Fields on Contacts */}
+            <DynamicFieldRenderer
+              fields={contactCustomFields}
+              values={createForm.customFields}
+              onChange={(key, val) =>
+                setCreateForm((prev) => ({
+                  ...prev,
+                  customFields: { ...prev.customFields, [key]: val },
+                }))
+              }
+            />
+
             <DialogFooter className="pt-2">
               <Button
                 type="button"
@@ -687,6 +874,14 @@ export default function ContactsClient({
                   </p>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
+                  <Link href={`/dashboard/contacts/${selectedContact.id}`}>
+                    <button
+                      className="h-7 px-2 border border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 text-[10px] font-semibold flex items-center gap-1 rounded transition-colors"
+                      title="Open Full Customer 360 Hub"
+                    >
+                      <Sparkles className="w-3 h-3 text-primary" /> 360° Hub
+                    </button>
+                  </Link>
                   <button
                     onClick={() => handleGenerateDraft("email")}
                     disabled={drafting}
@@ -749,7 +944,7 @@ export default function ContactsClient({
               {/* Detailed Contact Cards */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Contact Info
+                  Contact Info &amp; Channels
                 </h4>
                 <div className="grid grid-cols-2 gap-3 text-xs bg-muted/30 p-3 rounded-lg border border-border/50">
                   <div className="space-y-0.5">
@@ -764,14 +959,56 @@ export default function ContactsClient({
                       {selectedContact.phone || "—"}
                     </p>
                   </div>
+                  {selectedContact.whatsapp && (
+                    <div className="space-y-0.5">
+                      <span className="text-muted-foreground text-[10px]">WhatsApp</span>
+                      <p className="font-mono text-emerald-500 truncate select-all">
+                        {selectedContact.whatsapp}
+                      </p>
+                    </div>
+                  )}
+                  {selectedContact.linkedinUrl && (
+                    <div className="space-y-0.5">
+                      <span className="text-muted-foreground text-[10px]">LinkedIn</span>
+                      <p className="text-primary truncate">
+                        <a href={selectedContact.linkedinUrl.startsWith("http") ? selectedContact.linkedinUrl : `https://${selectedContact.linkedinUrl}`} target="_blank" rel="noreferrer" className="hover:underline flex items-center gap-1">
+                          Profile ↗
+                        </a>
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-0.5">
-                    <span className="text-muted-foreground text-[10px]">City</span>
-                    <p className="text-foreground">{selectedContact.city || "—"}</p>
+                    <span className="text-muted-foreground text-[10px]">Location</span>
+                    <p className="text-foreground">
+                      {[selectedContact.city, selectedContact.state, selectedContact.country].filter(Boolean).join(", ") || "—"}
+                    </p>
                   </div>
                   <div className="space-y-0.5">
                     <span className="text-muted-foreground text-[10px]">Source</span>
                     <p className="text-foreground capitalize">{selectedContact.source}</p>
                   </div>
+                  {selectedContact.buyingRole && (
+                    <div className="space-y-0.5">
+                      <span className="text-muted-foreground text-[10px]">Buying Role</span>
+                      <p className="text-primary font-medium capitalize">
+                        {selectedContact.buyingRole.replace(/_/g, " ")}
+                      </p>
+                    </div>
+                  )}
+                  {selectedContact.seniorityLevel && (
+                    <div className="space-y-0.5">
+                      <span className="text-muted-foreground text-[10px]">Seniority</span>
+                      <p className="text-foreground uppercase font-mono text-[11px]">
+                        {selectedContact.seniorityLevel.replace(/_/g, " ")}
+                      </p>
+                    </div>
+                  )}
+                  {selectedContact.department && (
+                    <div className="space-y-0.5">
+                      <span className="text-muted-foreground text-[10px]">Department</span>
+                      <p className="text-foreground">{selectedContact.department}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

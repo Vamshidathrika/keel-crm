@@ -38,7 +38,16 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { customer, docType, contactId, complianceStatus = "Pending Review", regulatoryLogs } = body;
+    const {
+      customer,
+      docType,
+      contactId,
+      complianceStatus = "Pending Review",
+      riskScore = 0,
+      expiresAt,
+      verifiedBy,
+      regulatoryLogs,
+    } = body;
 
     if (!customer || !docType) {
       return NextResponse.json({ error: "Fields 'customer' and 'docType' are required." }, { status: 400 });
@@ -54,6 +63,9 @@ export async function POST(req: Request) {
         docType: docType.trim(),
         contactId: contactId || null,
         complianceStatus,
+        riskScore: Number(riskScore) || 0,
+        expiresAt: expiresAt || null,
+        verifiedBy: verifiedBy?.trim() || null,
         regulatoryLogs: regulatoryLogs || null,
       })
       .returning();

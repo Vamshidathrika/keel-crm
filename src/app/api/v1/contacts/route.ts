@@ -4,6 +4,7 @@ import { contacts, activities } from "@/db/schema";
 import { eq, and, desc, like, or } from "drizzle-orm";
 import { authenticateApiKey } from "@/lib/api/auth";
 import { runProspectorAgent } from "@/lib/agents/prospector";
+import { resolveOrCreateCompany } from "@/lib/crm/companies";
 
 export async function GET(req: Request) {
   const authResult = await authenticateApiKey(req, "contacts:read");
@@ -47,13 +48,47 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { firstName, lastName, email, phone, title, companyId, tags = [], customFields = {} } = body;
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      whatsapp,
+      title,
+      department,
+      seniorityLevel,
+      buyingRole,
+      preferredChannel = "email",
+      linkedinUrl,
+      timezone,
+      city,
+      state,
+      country,
+      postalCode,
+      companyId,
+      companyName,
+      website,
+      tags = [],
+      customFields = {},
+    } = body;
 
     if (!firstName || typeof firstName !== "string") {
       return NextResponse.json({ error: "Field 'firstName' is required." }, { status: 400 });
     }
 
     const orgId = authResult.orgId!;
+
+    // Resolve or automatically provision company in the CRM
+    const resolvedCompanyId = await resolveOrCreateCompany(orgId, {
+      companyId,
+      companyName,
+      email,
+      website,
+      city,
+      state,
+      country,
+      customFields,
+    });
 
     const [newContact] = await db
       .insert(contacts)
@@ -63,8 +98,19 @@ export async function POST(req: Request) {
         lastName: lastName?.trim() || null,
         email: email?.trim() || null,
         phone: phone?.trim() || null,
+        whatsapp: whatsapp?.trim() || null,
         title: title?.trim() || null,
-        companyId: companyId || null,
+        department: department?.trim() || null,
+        seniorityLevel: seniorityLevel || null,
+        buyingRole: buyingRole || null,
+        preferredChannel: preferredChannel || "email",
+        linkedinUrl: linkedinUrl?.trim() || null,
+        timezone: timezone?.trim() || null,
+        city: city?.trim() || null,
+        state: state?.trim() || null,
+        country: country?.trim() || null,
+        postalCode: postalCode?.trim() || null,
+        companyId: resolvedCompanyId,
         source: "api_bridge",
         tags,
         customFields,

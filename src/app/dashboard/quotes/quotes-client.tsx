@@ -5,8 +5,10 @@ import { FileText, Plus, Search, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createQuote, updateQuoteStatus } from "@/app/actions/quotes";
+import { createQuote, updateQuoteStatus, convertQuoteToInvoice } from "@/app/actions/quotes";
 import { QuotesTable } from "@/components/quotes/quotes-table";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface QuotesClientProps {
   user: any;
@@ -14,6 +16,7 @@ interface QuotesClientProps {
 }
 
 export default function QuotesClient({ user, initialQuotes }: QuotesClientProps) {
+  const router = useRouter();
   const [quotes, setQuotes] = useState(initialQuotes || []);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -39,8 +42,10 @@ export default function QuotesClient({ user, initialQuotes }: QuotesClientProps)
       setQuotes([created, ...quotes]);
       setShowAdd(false);
       setNewForm({ title: "", clientName: "", amount: "" });
+      toast.success("Quotation drafted successfully!");
     } catch (err) {
       console.error("Failed to create quotation:", err);
+      toast.error("Failed to create quotation");
     } finally {
       setLoading(false);
     }
@@ -50,8 +55,21 @@ export default function QuotesClient({ user, initialQuotes }: QuotesClientProps)
     try {
       await updateQuoteStatus(id, status);
       setQuotes(quotes.map((q) => (q.id === id ? { ...q, status } : q)));
+      toast.success(`Quotation marked as ${status}`);
     } catch (err) {
       console.error("Failed to update status:", err);
+      toast.error("Failed to update status");
+    }
+  };
+
+  const handleConvertToInvoice = async (quoteId: string) => {
+    try {
+      const invoice = await convertQuoteToInvoice(quoteId);
+      setQuotes(quotes.map((q) => (q.id === quoteId ? { ...q, status: "accepted" } : q)));
+      toast.success(`Quote successfully converted to Invoice ${invoice.invoiceNumber}!`);
+      router.push(`/dashboard/invoices`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to convert quote to invoice");
     }
   };
 
@@ -159,7 +177,11 @@ export default function QuotesClient({ user, initialQuotes }: QuotesClientProps)
           </div>
         </CardHeader>
         <CardContent>
-          <QuotesTable quotes={filtered} onStatusUpdate={handleStatusUpdate} />
+          <QuotesTable
+            quotes={filtered}
+            onStatusUpdate={handleStatusUpdate}
+            onConvertToInvoice={handleConvertToInvoice}
+          />
         </CardContent>
       </Card>
     </div>

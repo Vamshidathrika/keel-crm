@@ -70,14 +70,14 @@ export default function LoginPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold tracking-tight">Welcome back</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Sign in to your Keel workspace.</p>
+      <h2 className="text-2xl font-semibold tracking-tight">Enterprise Authentication</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Access your institutional Keel revenue and operations workspace.</p>
 
       {/* 1-Click Dummy Credentials Picker */}
       <div className="mt-6 rounded-lg border border-border/80 bg-muted/20 p-3.5 space-y-2.5">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
-            ⚡ Quick Demo Accounts (1-Click Login)
+            ⚡ Instant Role-Based Sandbox Access
           </span>
           <span className="text-[10px] text-muted-foreground font-mono">pwd: password123</span>
         </div>
@@ -96,7 +96,7 @@ export default function LoginPage() {
             ) : (
               <ShieldCheck className="w-3.5 h-3.5 text-primary" />
             )}
-            <span className="text-xs font-semibold">Admin</span>
+            <span className="text-xs font-semibold">Admin / VP RevOps</span>
             <span className="text-[9px] text-muted-foreground font-mono">admin@keel.crm</span>
           </Button>
 

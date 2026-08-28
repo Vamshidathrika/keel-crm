@@ -28,8 +28,10 @@ import {
 } from "@/components/ui/dialog";
 import { createCompany, updateCompany, deleteCompany } from "@/app/actions/companies";
 import { createActivity } from "@/app/actions/activities";
-import ActivityTimeline from "@/components/activity-timeline";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
+
+const ActivityTimeline = dynamic(() => import("@/components/activity-timeline"), { ssr: false });
 
 type Company = {
   id: string;
@@ -37,6 +39,15 @@ type Company = {
   domain: string | null;
   industry: string | null;
   website: string | null;
+  linkedinUrl?: string | null;
+  gstin?: string | null;
+  employeeCount?: string | null;
+  annualRevenue?: number | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  postalCode?: string | null;
   ownerId: string | null;
   tags: string[];
   customFields: Record<string, string>;
@@ -72,6 +83,13 @@ export default function CompaniesClient({
     domain: "",
     industry: "",
     website: "",
+    gstin: "",
+    employeeCount: "",
+    annualRevenue: "",
+    linkedinUrl: "",
+    city: "",
+    state: "",
+    country: "",
   });
   const [createLoading, setCreateLoading] = useState(false);
 
@@ -92,11 +110,11 @@ export default function CompaniesClient({
   }, [highlightId, companies]);
 
   const filteredCompanies = companies.filter((c) => {
-    const q = query.toLowerCase();
-    const name = c.name.toLowerCase();
+    const q = (query || "").toLowerCase();
+    const name = (c.name || "").toLowerCase();
     const domain = (c.domain || "").toLowerCase();
     const industry = (c.industry || "").toLowerCase();
-    const tags = c.tags.map((t) => t.toLowerCase());
+    const tags = Array.isArray(c.tags) ? c.tags.map((t) => (t || "").toLowerCase()) : [];
 
     return (
       name.includes(q) ||
@@ -120,6 +138,13 @@ export default function CompaniesClient({
         domain: createForm.domain || undefined,
         industry: createForm.industry || undefined,
         website: createForm.website || undefined,
+        gstin: createForm.gstin || undefined,
+        employeeCount: createForm.employeeCount || undefined,
+        annualRevenue: createForm.annualRevenue ? Number(createForm.annualRevenue) : undefined,
+        linkedinUrl: createForm.linkedinUrl || undefined,
+        city: createForm.city || undefined,
+        state: createForm.state || undefined,
+        country: createForm.country || undefined,
         tags: [],
         customFields: {},
       };
@@ -132,6 +157,13 @@ export default function CompaniesClient({
         domain: "",
         industry: "",
         website: "",
+        gstin: "",
+        employeeCount: "",
+        annualRevenue: "",
+        linkedinUrl: "",
+        city: "",
+        state: "",
+        country: "",
       });
       toast.success("Company created successfully");
       setSelectedCompany(newCompany);
@@ -220,23 +252,23 @@ export default function CompaniesClient({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-primary" /> Companies
+            <Building2 className="w-6 h-6 text-primary" /> Corporate Accounts
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Track business entities and enterprise relations.
+            Institutional account directory, corporate hierarchy mapping, statutory GST compliance profiles, and account intelligence.
           </p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)} className="flex items-center gap-1.5">
-          <Plus className="w-4 h-4" /> Add Company
+          <Plus className="w-4 h-4" /> Provision Corporate Account
         </Button>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {[
-          { label: "Total Companies", value: companies.length, icon: Building2, color: "text-primary bg-primary/10" },
-          { label: "Vip Enterprises", value: companies.filter((c) => c.tags.includes("vip") || c.tags.includes("enterprise")).length, icon: Globe, color: "text-ai bg-ai/10" },
-          { label: "Unique Industries", value: new Set(companies.map((c) => c.industry).filter(Boolean)).size, icon: MapPin, color: "text-info bg-info/10" },
+          { label: "Active Enterprise Accounts", value: companies.length, icon: Building2, color: "text-primary bg-primary/10" },
+          { label: "Strategic Tier-1 Accounts", value: companies.filter((c) => c.tags.includes("vip") || c.tags.includes("enterprise")).length, icon: Globe, color: "text-ai bg-ai/10" },
+          { label: "Covered Industry Verticals", value: new Set(companies.map((c) => c.industry).filter(Boolean)).size, icon: MapPin, color: "text-info bg-info/10" },
         ].map((s) => {
           const Icon = s.icon;
           return (
@@ -395,6 +427,99 @@ export default function CompaniesClient({
                 />
               </div>
             </div>
+
+            {/* Optional Enterprise & Firmographic Details */}
+            <details className="group border border-border/80 rounded-lg p-3 bg-muted/20 text-xs">
+              <summary className="font-semibold text-foreground cursor-pointer flex items-center justify-between select-none py-0.5">
+                <span className="flex items-center gap-1.5 text-primary">
+                  🏢 More Company Details &amp; Tax Info (Optional)
+                </span>
+                <span className="text-[10px] text-muted-foreground group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div className="pt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="gstin" className="text-[11px]">GSTIN / Tax ID</Label>
+                    <Input
+                      id="gstin"
+                      value={createForm.gstin}
+                      onChange={(e) => setCreateForm({ ...createForm, gstin: e.target.value })}
+                      placeholder="e.g. 36AAACH7409R1ZZ"
+                      className="h-8 text-xs font-mono"
+                      disabled={createLoading}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="employeeCount" className="text-[11px]">Employee Count</Label>
+                    <select
+                      id="employeeCount"
+                      value={createForm.employeeCount}
+                      onChange={(e) => setCreateForm({ ...createForm, employeeCount: e.target.value })}
+                      className="w-full h-8 text-xs rounded-md border border-border bg-card px-2 text-foreground"
+                      disabled={createLoading}
+                    >
+                      <option value="">Select Company Size</option>
+                      <option value="1-10">1-10 Employees</option>
+                      <option value="11-50">11-50 Employees</option>
+                      <option value="51-200">51-200 Employees</option>
+                      <option value="201-1000">201-1000 Employees</option>
+                      <option value="1000+">1000+ Enterprise</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="annualRevenue" className="text-[11px]">Annual Revenue (INR)</Label>
+                    <Input
+                      id="annualRevenue"
+                      type="number"
+                      value={createForm.annualRevenue}
+                      onChange={(e) => setCreateForm({ ...createForm, annualRevenue: e.target.value })}
+                      placeholder="e.g. 50000000"
+                      className="h-8 text-xs font-mono"
+                      disabled={createLoading}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="companyLinkedin" className="text-[11px]">LinkedIn Company Page</Label>
+                    <Input
+                      id="companyLinkedin"
+                      value={createForm.linkedinUrl}
+                      onChange={(e) => setCreateForm({ ...createForm, linkedinUrl: e.target.value })}
+                      placeholder="linkedin.com/company/acme"
+                      className="h-8 text-xs"
+                      disabled={createLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="companyCity" className="text-[11px]">City</Label>
+                    <Input
+                      id="companyCity"
+                      value={createForm.city}
+                      onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })}
+                      placeholder="e.g. Hyderabad"
+                      className="h-8 text-xs"
+                      disabled={createLoading}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="companyState" className="text-[11px]">State / Region</Label>
+                    <Input
+                      id="companyState"
+                      value={createForm.state}
+                      onChange={(e) => setCreateForm({ ...createForm, state: e.target.value })}
+                      placeholder="e.g. Telangana"
+                      className="h-8 text-xs"
+                      disabled={createLoading}
+                    />
+                  </div>
+                </div>
+              </div>
+            </details>
 
             <DialogFooter className="pt-2">
               <Button

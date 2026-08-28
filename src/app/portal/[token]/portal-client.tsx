@@ -5,6 +5,7 @@ import { MessageSquare, Send, CheckCircle2, AlertTriangle, FileText, Download, C
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { toast } from "sonner";
 
 interface PortalClientProps {
@@ -29,6 +30,34 @@ export default function PortalClient({
   const [messages, setMessages] = useState(initialMessages);
   const [typedMsg, setTypedMsg] = useState("");
   const [localProjects, setLocalProjects] = useState(projects);
+  const [localInvoices, setLocalInvoices] = useState(invoices);
+  const [localQuotes, setLocalQuotes] = useState(quotes);
+
+  const handleAcceptQuote = async (quoteId: string) => {
+    try {
+      const { acceptQuoteByPortal } = await import("@/app/actions/portal");
+      await acceptQuoteByPortal(client.portalToken, quoteId, client.name);
+      setLocalQuotes((prev) =>
+        prev.map((q) => (q.id === quoteId ? { ...q, status: "accepted" } : q))
+      );
+      toast.success("Quotation accepted & signed digitally!");
+    } catch (err) {
+      toast.error("Failed to accept quotation");
+    }
+  };
+
+  const handlePayInvoice = async (invoiceId: string) => {
+    try {
+      const { payInvoiceByPortal } = await import("@/app/actions/portal");
+      await payInvoiceByPortal(client.portalToken, invoiceId);
+      setLocalInvoices((prev) =>
+        prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: "paid" } : inv))
+      );
+      toast.success("Payment recorded successfully!");
+    } catch (err) {
+      toast.error("Failed to process payment");
+    }
+  };
 
   const primaryColor = branding.primaryColor || "#2F5DFF";
   const appName = branding.appName || orgName;
@@ -104,8 +133,11 @@ export default function PortalClient({
             <span className="text-lg font-bold tracking-tight">{appName} Portal</span>
           )}
         </div>
-        <div className="text-xs font-semibold bg-white/20 px-3 py-1 rounded-full">
-          Client: {client.name}
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          <div className="text-xs font-semibold bg-white/20 px-3 py-1 rounded-full text-white">
+            Client: {client.name}
+          </div>
         </div>
       </header>
 
@@ -196,34 +228,47 @@ export default function PortalClient({
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
-                {invoices.map((inv: any) => (
-                  <div key={inv.id} className="flex justify-between items-center p-3 rounded-lg border border-border bg-muted/20 text-xs">
-                    <div>
-                      <p className="font-semibold text-foreground">{inv.invoiceNumber}</p>
-                      <div className="flex gap-2 items-center mt-0.5">
-                        <span className="text-[9px] text-muted-foreground font-mono">Due: {inv.dueDate}</span>
-                        <span className="text-muted-foreground/40 text-[9px]">|</span>
-                        <a
-                          href={`/portal/${client.portalToken}/invoices/${inv.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[9px] text-primary hover:underline font-mono"
-                        >
-                          🖨️ Print
-                        </a>
+                {localInvoices.map((inv: any) => (
+                  <div key={inv.id} className="p-3 rounded-lg border border-border bg-muted/20 text-xs space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold text-foreground">{inv.invoiceNumber}</p>
+                        <div className="flex gap-2 items-center mt-0.5">
+                          <span className="text-[9px] text-muted-foreground font-mono">Due: {inv.dueDate}</span>
+                          <span className="text-muted-foreground/40 text-[9px]">|</span>
+                          <a
+                            href={`/portal/${client.portalToken}/invoices/${inv.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[9px] text-primary hover:underline font-mono"
+                          >
+                            🖨️ Print
+                          </a>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground font-mono">₹{inv.amount.toLocaleString("en-IN")}</span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                          inv.status === "paid" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
+                        }`}>
+                          {inv.status}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-foreground font-mono">₹{inv.amount.toLocaleString("en-IN")}</span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                        inv.status === "paid" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
-                      }`}>
-                        {inv.status}
-                      </span>
-                    </div>
+                    {inv.status !== "paid" && (
+                      <div className="flex justify-end pt-1">
+                        <Button
+                          size="xs"
+                          onClick={() => handlePayInvoice(inv.id)}
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] h-6 px-2.5 font-semibold"
+                        >
+                          💳 Pay Now (₹{inv.amount.toLocaleString("en-IN")})
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
-                {invoices.length === 0 && (
+                {localInvoices.length === 0 && (
                   <p className="text-xs text-muted-foreground italic text-center py-4">No billing statements available.</p>
                 )}
               </CardContent>
@@ -237,34 +282,47 @@ export default function PortalClient({
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
-                {quotes.map((qte: any) => (
-                  <div key={qte.id} className="flex justify-between items-center p-3 rounded-lg border border-border bg-muted/20 text-xs">
-                    <div>
-                      <p className="font-semibold text-foreground truncate max-w-[150px]">{qte.title}</p>
-                      <div className="flex gap-2 items-center mt-0.5">
-                        <span className="text-[9px] text-muted-foreground font-mono">Total Quote</span>
-                        <span className="text-muted-foreground/40 text-[9px]">|</span>
-                        <a
-                          href={`/portal/${client.portalToken}/quotes/${qte.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[9px] text-primary hover:underline font-mono"
-                        >
-                          🖨️ Print
-                        </a>
+                {localQuotes.map((qte: any) => (
+                  <div key={qte.id} className="p-3 rounded-lg border border-border bg-muted/20 text-xs space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold text-foreground truncate max-w-[150px]">{qte.title}</p>
+                        <div className="flex gap-2 items-center mt-0.5">
+                          <span className="text-[9px] text-muted-foreground font-mono">Total Quote</span>
+                          <span className="text-muted-foreground/40 text-[9px]">|</span>
+                          <a
+                            href={`/portal/${client.portalToken}/quotes/${qte.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[9px] text-primary hover:underline font-mono"
+                          >
+                            🖨️ Print
+                          </a>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground font-mono">₹{qte.total.toLocaleString("en-IN")}</span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                          qte.status === "accepted" ? "bg-success/15 text-success" : "bg-ai/15 text-ai"
+                        }`}>
+                          {qte.status}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-foreground font-mono">₹{qte.total.toLocaleString("en-IN")}</span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                        qte.status === "accepted" ? "bg-success/15 text-success" : "bg-ai/15 text-ai"
-                      }`}>
-                        {qte.status}
-                      </span>
-                    </div>
+                    {qte.status !== "accepted" && (
+                      <div className="flex justify-end pt-1">
+                        <Button
+                          size="xs"
+                          onClick={() => handleAcceptQuote(qte.id)}
+                          className="bg-success hover:bg-success/90 text-white text-[10px] h-6 px-2.5 font-semibold"
+                        >
+                          ✍️ Accept & Sign Digitally
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
-                {quotes.length === 0 && (
+                {localQuotes.length === 0 && (
                   <p className="text-xs text-muted-foreground italic text-center py-4">No quotations shared.</p>
                 )}
               </CardContent>

@@ -63,9 +63,9 @@ export default function KycClient({ user, initialRecords = [] }: KycClientProps)
 
   const filtered = kycRecords.filter(
     (k) =>
-      k.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      k.docType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      k.id.toLowerCase().includes(searchTerm.toLowerCase())
+      (k.customer || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (k.docType || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (k.id || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

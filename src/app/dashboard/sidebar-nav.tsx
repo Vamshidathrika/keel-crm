@@ -28,12 +28,15 @@ import {
 } from "lucide-react";
 import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
 
+import { Boxes } from "lucide-react";
+
 // Icon map for vertical widget nav entries
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
   "/dashboard/shipments": Ship,
   "/dashboard/revenue": TrendingUp,
   "/dashboard/properties": Home,
   "/dashboard/appointments": Calendar,
+  "/dashboard/invoices": FileText,
   "/dashboard/quotes": FileText,
   "/dashboard/projects": Briefcase,
   "/dashboard/orders": ShoppingCart,
@@ -48,36 +51,43 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
 interface SidebarNavProps {
   role: string;
   enabledWidgetKeys?: string[];
+  customObjects?: Array<{ id: string; pluralName: string; slug: string }>;
 }
 
-export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavProps) {
+export default function SidebarNav({
+  role,
+  enabledWidgetKeys = [],
+  customObjects = [],
+}: SidebarNavProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab");
 
   // 1. Core CRM & Pipeline
   const coreCrmLinks = [
-    { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+    { href: "/dashboard", label: "Executive Overview", icon: LayoutDashboard, exact: true },
     { href: "/dashboard/deals", label: "Deals & Pipeline", icon: DollarSign },
-    { href: "/dashboard/contacts", label: "Contacts", icon: Users },
-    { href: "/dashboard/companies", label: "Companies", icon: Building2 },
-    { href: "/dashboard/products", label: "Products & Catalog", icon: Package },
-    { href: "/dashboard/tasks", label: "Tasks & Activity", icon: CheckSquare },
+    { href: "/dashboard/contacts", label: "Key Stakeholders", icon: Users },
+    { href: "/dashboard/companies", label: "Corporate Accounts", icon: Building2 },
+    { href: "/dashboard/products", label: "Commercial Catalog", icon: Package },
+    { href: "/dashboard/tasks", label: "Execution Tasks", icon: CheckSquare },
+    { href: "/dashboard/team", label: "Sales Force & Workload", icon: Users },
   ];
 
   // 2. Sales Acceleration & Governance
   const salesExecutionLinks = [
     { href: "/dashboard/quotas", label: "Quotas & Commission", icon: Target },
     { href: "/dashboard/cadences", label: "Sales Cadences", icon: ListOrdered },
-    { href: "/dashboard/business-os?tab=sales", label: "Invoices & Quotes", icon: FileText, tab: "sales" },
+    { href: "/dashboard/invoices", label: "Invoices & LedgerOS™", icon: FileText },
+    { href: "/dashboard/quotes", label: "Proposals & Contracts", icon: FileText },
   ];
 
   // 3. Growth & AI RevOps
   const growthAiLinks = [
     { href: "/dashboard/growth", label: "Growth & Flywheel", icon: TrendingUp },
-    { href: "/dashboard/agent-hub", label: "Agent Control Hub", icon: Bot },
-    { href: "/dashboard/business-os?tab=projects", label: "Projects & Portal", icon: Briefcase, tab: "projects" },
-    { href: "/dashboard/business-os?tab=insights", label: "AI Insights", icon: Sparkles, tab: "insights" },
+    { href: "/dashboard/agent-hub", label: "Autonomous Agent Hub", icon: Bot },
+    { href: "/dashboard/business-os?tab=projects", label: "Client Portals & Projects", icon: Briefcase, tab: "projects" },
+    { href: "/dashboard/business-os?tab=insights", label: "AI Executive Insights", icon: Sparkles, tab: "insights" },
   ];
 
   // 4. Industry Vertical Modules
@@ -92,6 +102,7 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
         !w.navHref.startsWith("/dashboard/contacts") &&
         !w.navHref.startsWith("/dashboard/companies") &&
         !w.navHref.startsWith("/dashboard/tasks") &&
+        !w.navHref.startsWith("/dashboard/team") &&
         enabledWidgetKeys.includes(w.key)
     ).map((w) => ({
       href: w.navHref!,
@@ -152,7 +163,25 @@ export default function SidebarNav({ role, enabledWidgetKeys = [] }: SidebarNavP
         <div className="space-y-0.5">{growthAiLinks.map(renderNavLink)}</div>
       </div>
 
-      {/* Group 4: Industry Modules (if enabled) */}
+      {/* Group 4: Dynamic Custom Objects */}
+      {customObjects.length > 0 && (
+        <div className="space-y-1">
+          <p className="px-3 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 font-mono">
+            Custom Entities
+          </p>
+          <div className="space-y-0.5">
+            {customObjects.map((obj) =>
+              renderNavLink({
+                href: `/dashboard/objects/${obj.slug}`,
+                label: obj.pluralName,
+                icon: Boxes,
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Group 5: Industry Modules (if enabled) */}
       {verticalLinks.length > 0 && (
         <div className="space-y-1">
           <p className="px-3 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 font-mono">

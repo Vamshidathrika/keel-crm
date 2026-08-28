@@ -2,8 +2,8 @@ import React from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { organizations, orgWidgets } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { organizations, orgWidgets, customObjectDefinitions } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import Link from "next/link";
 import SessionProvider from "@/components/session-provider";
 import {
@@ -22,26 +22,33 @@ import {
 import SidebarNav from "./sidebar-nav";
 import NotificationBell from "@/components/notification-bell";
 import SearchCommandTrigger from "@/components/search-command-trigger";
+import { ThemeToggle } from "@/components/theme-toggle";
 import dynamicImport from "next/dynamic";
 import { ensureDatabaseBootstrapped } from "@/db/bootstrap";
 import { BrandingProvider } from "@/components/branding-provider";
 import { WIDGET_REGISTRY } from "@/lib/widgets/registry";
+import SandboxBanner from "@/components/onboarding/sandbox-banner";
+import ActivationQuestCard from "@/components/onboarding/activation-quest-card";
+import ConfettiCelebration from "@/components/onboarding/confetti-celebration";
+import ProductTour from "@/components/onboarding/product-tour";
+import TourTrigger from "@/components/onboarding/tour-trigger";
+import { checkSandboxStatus } from "@/server/actions/sandbox-seed";
 
 const CopilotAssistant = dynamicImport(() => import("@/components/copilot-assistant"));
 const SearchCommand = dynamicImport(() => import("@/components/search-command"));
 
 // In-memory cache with short TTL so screen transitions inside dashboard don't re-query layout data
-const layoutCache = new Map<string, { org: any; widgetRows: any[]; timestamp: number }>();
+const layoutCache = new Map<string, { org: any; widgetRows: any[]; customObjects: any[]; timestamp: number }>();
 const CACHE_TTL_MS = 60 * 1000;
 
 async function getCachedOrgLayoutData(orgId: string) {
   const cached = layoutCache.get(orgId);
   const now = Date.now();
   if (cached && now - cached.timestamp < CACHE_TTL_MS) {
-    return { org: cached.org, widgetRows: cached.widgetRows };
+    return { org: cached.org, widgetRows: cached.widgetRows, customObjects: cached.customObjects };
   }
 
-  const [org, widgetRows] = await Promise.all([
+  const [org, widgetRows, customObjects] = await Promise.all([
     db.query.organizations.findFirst({
       where: eq(organizations.id, orgId),
     }),
@@ -51,10 +58,14 @@ async function getCachedOrgLayoutData(orgId: string) {
         eq(orgWidgets.isEnabled, true)
       ),
     }),
+    db.query.customObjectDefinitions.findMany({
+      where: eq(customObjectDefinitions.orgId, orgId),
+      orderBy: [desc(customObjectDefinitions.createdAt)],
+    }),
   ]);
 
-  layoutCache.set(orgId, { org, widgetRows, timestamp: now });
-  return { org, widgetRows };
+  layoutCache.set(orgId, { org, widgetRows, customObjects, timestamp: now });
+  return { org, widgetRows, customObjects };
 }
 
 export const dynamic = "force-dynamic";
@@ -81,10 +92,14 @@ export default async function DashboardLayout({
   // Load Organization + Widgets (cached in memory for instant screen transitions)
   let org: any = null;
   let widgetRows: any[] = [];
+  let customObjects: any[] = [];
+  let sandboxStatus = { isDemo: false, demoDealsCount: 0 };
   try {
     const data = await getCachedOrgLayoutData(session.user.orgId);
     org = data.org;
     widgetRows = data.widgetRows;
+    customObjects = data.customObjects || [];
+    sandboxStatus = await checkSandboxStatus(session.user.orgId);
   } catch (err) {
     console.error("Dashboard DB load error:", err);
   }
@@ -105,7 +120,7 @@ export default async function DashboardLayout({
       <BrandingProvider branding={branding}>
       <div className="flex h-screen overflow-hidden bg-background text-foreground font-sans">
         {/* Sticky Sidebar */}
-        <aside className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar shrink-0 h-screen sticky top-0 z-30 select-none">
+        <aside data-tour="sidebar" className="hidden md:flex w-64 flex-col border-r border-border bg-sidebar shrink-0 h-screen sticky top-0 z-30 select-none">
           <div className="flex h-16 items-center gap-2 px-6 border-b border-border shrink-0">
             {logoUrl ? (
               <img src={logoUrl} alt={appName} className="w-8 h-8 rounded object-contain" />
@@ -125,7 +140,13 @@ export default async function DashboardLayout({
           </div>
 
           <div className="flex-1 py-4 overflow-y-auto scrollbar-thin">
-            <SidebarNav role={session.user.role} enabledWidgetKeys={enabledWidgetKeys} />
+            <React.Suspense fallback={<div className="p-4 text-xs text-muted-foreground">Loading navigation...</div>}>
+              <SidebarNav
+                role={session.user.role}
+                enabledWidgetKeys={enabledWidgetKeys}
+                customObjects={customObjects}
+              />
+            </React.Suspense>
           </div>
 
           <div className="p-4 border-t border-border bg-sidebar-accent/10 shrink-0">
@@ -154,14 +175,20 @@ export default async function DashboardLayout({
           {/* Header */}
           <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6 shrink-0 z-40">
             {/* Search command bar trigger */}
-            <div className="flex-1 max-w-md">
+            <div data-tour="search" className="flex-1 max-w-md">
               <SearchCommandTrigger />
             </div>
 
             {/* Topbar Actions */}
-            <div className="flex items-center gap-4">
+            <div data-tour="notifications" className="flex items-center gap-3">
+              {/* Product Tour Trigger Button */}
+              <TourTrigger />
+
               {/* Notification Bell */}
               <NotificationBell />
+
+              {/* Dark Mode Toggle */}
+              <ThemeToggle />
 
               <div className="h-4 w-px bg-border hidden sm:block" />
 
@@ -172,16 +199,30 @@ export default async function DashboardLayout({
           </header>
 
           {/* Independent Scrollable Workarea */}
-          <main className="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth">
+          <main data-tour="workspace" className="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth">
             <div className="max-w-7xl mx-auto space-y-6">
+              {sandboxStatus.isDemo && (
+                <SandboxBanner
+                  businessType={org?.businessType}
+                  hasDemoData={sandboxStatus.isDemo}
+                />
+              )}
               {children}
             </div>
           </main>
         </div>
 
         {/* Floating Cmd+K Copilot Chat Trigger & Pane */}
-        <CopilotAssistant user={session.user} />
+        <div data-tour="copilot">
+          <CopilotAssistant user={session.user} />
+        </div>
         <SearchCommand />
+        <ActivationQuestCard
+          businessType={org?.businessType}
+          orgName={orgName}
+        />
+        <ConfettiCelebration />
+        <ProductTour />
       </div>
       </BrandingProvider>
     </SessionProvider>

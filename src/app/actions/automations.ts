@@ -1,8 +1,17 @@
 "use server";
 
 import { db } from "@/db";
-import { automations, automationConditions, automationActions, automationRuns, tasks, contacts } from "@/db/schema";
+import {
+  automations,
+  automationConditions,
+  automationActions,
+  automationRuns,
+  tasks,
+  contacts,
+} from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { logAuditEntry } from "@/lib/audit";
+import { executeWorkflowGraph, WorkflowExecutionResult } from "@/lib/workflow-executor";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -22,21 +31,24 @@ export async function getAutomations() {
 
 export async function createAutomation(data: {
   name: string;
-  trigger: "deal_stage_changed" | "contact_created" | "task_overdue" | "activity_created";
+  description?: string;
+  trigger: any;
+  graphData?: { nodes: any[]; edges: any[] };
   condition?: {
     field: string;
     operator: "equals" | "not_equals" | "contains" | "gt" | "lt";
     value: string;
   };
   action: {
-    actionType: "create_task" | "send_notification" | "call_webhook" | "add_tag";
+    actionType: any;
     config: Record<string, any>;
   };
 }) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
-  const { orgId } = session.user;
+  const { orgId, id: userId, role } = session.user;
+  if (role === "rep") throw new Error("Access Denied: Only Admins and Managers can create automations.");
 
   const result = await db.transaction(async (tx) => {
     // 1. Create automation record
@@ -45,7 +57,9 @@ export async function createAutomation(data: {
       .values({
         orgId,
         name: data.name.trim(),
+        description: data.description?.trim() || null,
         trigger: data.trigger,
+        graphData: data.graphData || null,
         isEnabled: true,
       })
       .returning();
@@ -60,18 +74,77 @@ export async function createAutomation(data: {
       });
     }
 
-    // 3. Add actions
+    // 3. Add action
     await tx.insert(automationActions).values({
       automationId: auto.id,
       actionType: data.action.actionType,
       config: data.action.config,
+      order: 1,
     });
 
     return auto;
   });
 
+  await logAuditEntry(orgId, userId, "create", "automation", result.id, {
+    name: result.name,
+    trigger: result.trigger,
+  });
+
   revalidatePath("/dashboard/settings");
   return result;
+}
+
+/**
+ * Save Visual Workflow Graph from XYFlow Canvas
+ */
+export async function saveVisualWorkflowGraph(
+  automationId: string,
+  graphData: { nodes: any[]; edges: any[] }
+) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const { orgId, id: userId, role } = session.user;
+  if (role === "rep") throw new Error("Access Denied");
+
+  const [updated] = await db
+    .update(automations)
+    .set({
+      graphData,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(and(eq(automations.id, automationId), eq(automations.orgId, orgId)))
+    .returning();
+
+  await logAuditEntry(orgId, userId, "update", "workflow_graph", automationId, {
+    nodeCount: graphData.nodes.length,
+    edgeCount: graphData.edges.length,
+  });
+
+  revalidatePath("/dashboard/settings");
+  return updated;
+}
+
+/**
+ * 1-Click Test Run Simulator
+ */
+export async function testRunWorkflow(
+  automationId: string,
+  mockPayload: Record<string, any> = {}
+): Promise<WorkflowExecutionResult> {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const defaultMock = {
+    title: "Enterprise Deal (ACME Corp)",
+    value: 250000,
+    stageId: "stg_negotiation",
+    contactId: "cnt_sample_buyer",
+    ownerId: session.user.id,
+    ...mockPayload,
+  };
+
+  return executeWorkflowGraph(automationId, defaultMock);
 }
 
 export async function toggleAutomation(id: string, isEnabled: boolean) {
@@ -108,12 +181,14 @@ export async function getAutomationRuns(automationId: string) {
   });
 }
 
-// Background workflow engine runner (NextAuth auth-free for database updates triggers)
+/**
+ * Trigger background workflows on database mutation events
+ */
 export async function triggerWorkflows(
   orgId: string,
-  event: "deal_stage_changed" | "contact_created" | "activity_created",
+  event: any,
   entityId: string,
-  context: Record<string, any>
+  context: Record<string, any> = {}
 ) {
   try {
     const activeAutomations = await db.query.automations.findMany({
@@ -122,74 +197,15 @@ export async function triggerWorkflows(
         eq(automations.trigger, event),
         eq(automations.isEnabled, true)
       ),
-      with: {
-        automationConditions: true,
-        automationActions: true,
-      },
     });
 
     for (const auto of activeAutomations) {
-      try {
-        let matchesConditions = true;
-        for (const cond of auto.automationConditions) {
-          const val = context[cond.field];
-          if (cond.operator === "equals" && String(val) !== cond.value) {
-            matchesConditions = false;
-          }
-        }
-
-        if (!matchesConditions) continue;
-
-        for (const action of auto.automationActions) {
-          if (action.actionType === "create_task") {
-            const cfg = action.config as { title: string; description?: string; dueDays?: number };
-            const dueDays = cfg.dueDays || 2;
-            const dueDate = new Date(Date.now() + dueDays * 86400000).toISOString().slice(0, 10);
-            
-            await db.insert(tasks).values({
-              orgId,
-              title: cfg.title,
-              description: cfg.description || "Automated workflow task",
-              dueDate,
-              isDone: false,
-              relatedContactId: context.contactId || null,
-              relatedCompanyId: context.companyId || null,
-              relatedDealId: context.dealId || null,
-              assigneeId: context.ownerId || null,
-            });
-          } else if (action.actionType === "add_tag") {
-            const cfg = action.config as { tag: string };
-            if (context.contactId && cfg.tag) {
-              const contactMatch = await db.query.contacts.findFirst({
-                where: eq(contacts.id, context.contactId),
-              });
-              if (contactMatch) {
-                const currentTags = contactMatch.tags || [];
-                if (!currentTags.includes(cfg.tag)) {
-                  await db
-                    .update(contacts)
-                    .set({ tags: [...currentTags, cfg.tag] })
-                    .where(eq(contacts.id, context.contactId));
-                }
-              }
-            }
-          }
-        }
-
-        await db.insert(automationRuns).values({
-          automationId: auto.id,
-          status: "success",
-          detail: `Executed ${auto.automationActions.length} action(s).`,
-        });
-      } catch (err: any) {
-        await db.insert(automationRuns).values({
-          automationId: auto.id,
-          status: "failed",
-          detail: err.message || "Error running action",
-        });
-      }
+      await executeWorkflowGraph(auto.id, {
+        entityId,
+        ...context,
+      }).catch((e) => console.error(`Workflow execution error [${auto.id}]:`, e));
     }
-  } catch (globalErr) {
-    console.error("Global workflow failure:", globalErr);
+  } catch (err) {
+    console.error("Workflow trigger dispatcher error:", err);
   }
 }

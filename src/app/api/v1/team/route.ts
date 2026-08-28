@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { authenticateApiKey } from "@/lib/api/auth";
-import crypto from "crypto";
+import bcrypt from "bcryptjs";
 
 export async function GET(req: Request) {
   const authResult = await authenticateApiKey(req, "team:read");
@@ -43,14 +43,25 @@ export async function POST(req: Request) {
     }
 
     const orgId = authResult.orgId!;
-    const passwordHash = crypto.createHash("sha256").update(password).digest("hex");
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if email already exists
+    const existing = await db.query.users.findFirst({
+      where: eq(users.email, normalizedEmail),
+    });
+
+    if (existing) {
+      return NextResponse.json({ error: "A user with this email already exists." }, { status: 409 });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const [newUser] = await db
       .insert(users)
       .values({
         orgId,
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         passwordHash,
         role,
         isActive: true,

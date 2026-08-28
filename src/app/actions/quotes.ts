@@ -84,3 +84,82 @@ export async function updateQuoteStatus(id: string, status: "draft" | "sent" | "
   revalidatePath("/dashboard/quotes");
   return updated;
 }
+
+export async function convertQuoteToInvoice(quoteId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const { orgId } = session.user;
+
+  // 1. Fetch Quote
+  const quote = await db.query.quotations.findFirst({
+    where: and(eq(quotations.id, quoteId), eq(quotations.orgId, orgId)),
+    with: { client: true, deal: true },
+  });
+
+  if (!quote) throw new Error("Quotation not found");
+
+  const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+  const dueDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  const subtotal = quote.subtotal || quote.total;
+  const taxPercent = quote.taxPercent || 18;
+  const taxAmount = Math.round((subtotal * taxPercent) / 100);
+
+  // 2. Insert Invoice
+  const { invoices } = await import("@/db/schema");
+  const [inv] = await db
+    .insert(invoices)
+    .values({
+      orgId,
+      clientId: quote.clientId,
+      dealId: quote.dealId || null,
+      invoiceNumber,
+      amount: quote.total,
+      subtotal,
+      taxAmount,
+      paymentTerms: "net_30",
+      lineItems: (quote.items as any) || [],
+      dueDate,
+      status: "unpaid",
+    })
+    .returning();
+
+  // 3. Mark Quote as Accepted
+  await db
+    .update(quotations)
+    .set({ status: "accepted", updatedAt: new Date().toISOString() })
+    .where(and(eq(quotations.id, quoteId), eq(quotations.orgId, orgId)));
+
+  // 4. Log Activity
+  await db.insert(activities).values({
+    orgId,
+    type: "system",
+    relatedDealId: quote.dealId || null,
+    body: `Quotation "${quote.title}" converted to Invoice ${inv.invoiceNumber} (₹${inv.amount.toLocaleString("en-IN")})`,
+    source: "manual",
+  });
+
+  // 5. Dispatch Webhook & Trigger Workflows
+  const { dispatchWebhookEvent } = await import("@/lib/webhooks-dispatcher");
+  dispatchWebhookEvent(orgId, "invoice.issued", {
+    invoiceId: inv.id,
+    invoiceNumber: inv.invoiceNumber,
+    quoteId: quote.id,
+    clientId: inv.clientId,
+    amount: inv.amount,
+    status: inv.status,
+    dueDate: inv.dueDate,
+  }).catch((err) => console.error("Webhook error:", err));
+
+  const { triggerWorkflows } = await import("@/app/actions/automations");
+  triggerWorkflows(orgId, "quote_accepted", quote.id, {
+    quoteTotal: quote.total,
+    clientId: quote.clientId,
+    dealId: quote.dealId,
+  }).catch((err) => console.error("Workflow trigger error:", err));
+
+  revalidatePath("/dashboard/quotes");
+  revalidatePath("/dashboard/invoices");
+  revalidatePath("/dashboard/business-os");
+  return inv;
+}

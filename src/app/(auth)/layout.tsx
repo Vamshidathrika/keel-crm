@@ -14,25 +14,25 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           {children}
         </div>
       </div>
-      <div className="hidden lg:flex flex-col justify-between bg-[#0b0f19] text-white p-12 relative overflow-hidden">
+      <div className="hidden lg:flex flex-col justify-between bg-[#262624] text-[#f1f1ef] p-12 relative overflow-hidden border-l border-[#3e3e38]">
         <div
           className="absolute inset-0 opacity-40"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 20% 20%, rgba(47,93,255,0.35), transparent 40%), radial-gradient(circle at 80% 70%, rgba(232,163,61,0.25), transparent 45%)",
+              "radial-gradient(circle at 20% 20%, rgba(201,100,66,0.35), transparent 40%), radial-gradient(circle at 80% 70%, rgba(156,135,245,0.25), transparent 45%)",
           }}
         />
         <div className="relative">
-          <p className="font-mono text-xs uppercase tracking-widest text-white/50">AI-native CRM</p>
-          <h1 className="mt-4 text-3xl font-semibold leading-tight max-w-md">
+          <p className="font-mono text-xs uppercase tracking-widest text-[#b7b5a9]">AI-native CRM</p>
+          <h1 className="mt-4 text-3xl font-semibold leading-tight max-w-md text-[#faf9f5]">
             The CRM that keeps every deal on course.
           </h1>
         </div>
         <div className="relative rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-          <div className="flex items-center gap-2 text-xs text-[#e8a33d] font-mono uppercase tracking-wider">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#e8a33d]" /> AI Insight
+          <div className="flex items-center gap-2 text-xs text-[#c96442] font-mono uppercase tracking-wider font-bold">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#c96442]" /> AI Insight
           </div>
-          <p className="mt-2 text-sm text-white/80 leading-relaxed">
+          <p className="mt-2 text-sm text-[#e5e5e2] leading-relaxed">
             &ldquo;Hot lead, no activity in 6 days &mdash; recommend a follow-up call before Friday.&rdquo;
           </p>
         </div>

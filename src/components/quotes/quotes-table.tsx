@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 interface QuotesTableProps {
   quotes: any[];
   onStatusUpdate: (id: string, status: "draft" | "sent" | "accepted" | "rejected") => void;
+  onConvertToInvoice?: (quoteId: string) => void;
 }
 
-export function QuotesTable({ quotes, onStatusUpdate }: QuotesTableProps) {
+export function QuotesTable({ quotes, onStatusUpdate, onConvertToInvoice }: QuotesTableProps) {
   if (!quotes || quotes.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground text-sm">
@@ -53,7 +54,15 @@ export function QuotesTable({ quotes, onStatusUpdate }: QuotesTableProps) {
                   {q.status?.toUpperCase() || "DRAFT"}
                 </span>
               </td>
-              <td className="p-3 text-right space-x-1">
+              <td className="p-3 text-right space-x-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px]"
+                  onClick={() => window.open(`/dashboard/quotes/${q.id}`, "_blank")}
+                >
+                  🖨️ Print
+                </Button>
                 {q.status !== "accepted" && (
                   <Button
                     size="sm"
@@ -61,17 +70,16 @@ export function QuotesTable({ quotes, onStatusUpdate }: QuotesTableProps) {
                     className="h-7 text-[10px]"
                     onClick={() => onStatusUpdate(q.id, "accepted")}
                   >
-                    Mark Accepted
+                    Accept
                   </Button>
                 )}
-                {q.status === "draft" && (
+                {onConvertToInvoice && (
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="h-7 text-[10px]"
-                    onClick={() => onStatusUpdate(q.id, "sent")}
+                    className="h-7 text-[10px] bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                    onClick={() => onConvertToInvoice(q.id)}
                   >
-                    Mark Sent
+                    💳 Convert to Invoice
                   </Button>
                 )}
               </td>

@@ -75,9 +75,9 @@ export default function OrdersClient({ user, initialOrders = [] }: OrdersClientP
 
   const filtered = orders.filter(
     (o) =>
-      o.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.items.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.id.toLowerCase().includes(searchTerm.toLowerCase())
+      (o.customer || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (o.items || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (o.id || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

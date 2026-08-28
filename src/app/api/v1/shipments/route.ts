@@ -38,7 +38,21 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { dealName, carrier, origin, destination, eta, mode = "Ocean Freight", cost = "0", dealId, status = "Booking Confirmed" } = body;
+    const {
+      dealName,
+      carrier,
+      origin,
+      destination,
+      eta,
+      mode = "Ocean Freight",
+      cost = "0",
+      dealId,
+      status = "Booking Confirmed",
+      trackingNumber,
+      vesselOrFlight,
+      weightKg,
+      volumeCbm,
+    } = body;
 
     if (!dealName || !carrier || !origin || !destination || !eta) {
       return NextResponse.json({ error: "Required fields: dealName, carrier, origin, destination, eta" }, { status: 400 });
@@ -53,8 +67,12 @@ export async function POST(req: Request) {
         dealId: dealId || null,
         dealName: dealName.trim(),
         carrier: carrier.trim(),
+        trackingNumber: trackingNumber?.trim() || null,
+        vesselOrFlight: vesselOrFlight?.trim() || null,
         origin: origin.trim(),
         destination: destination.trim(),
+        weightKg: weightKg !== undefined ? Number(weightKg) : null,
+        volumeCbm: volumeCbm !== undefined ? Number(volumeCbm) : null,
         eta: eta.trim(),
         mode,
         cost: String(cost),

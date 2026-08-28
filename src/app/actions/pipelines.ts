@@ -5,7 +5,7 @@ import { pipelines, stages } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { assert, canManagePipelines } from "@/lib/permissions";
 import { logAuditEntry } from "@/lib/audit";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, ne, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function getPipelines() {
@@ -213,7 +213,7 @@ export async function updatePipeline(
     await db
       .update(pipelines)
       .set({ isDefault: false })
-      .where(eq(pipelines.orgId, session.user.orgId));
+      .where(and(eq(pipelines.orgId, session.user.orgId), ne(pipelines.id, id)));
   }
 
   const [updated] = await db
@@ -275,4 +275,34 @@ export async function deletePipeline(pipelineId: string, fallbackPipelineId?: st
   revalidatePath("/dashboard/settings");
 
   return getPipelines();
+}
+
+export async function reorderStages(pipelineId: string, stageIdsInOrder: string[]) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  assert(canManagePipelines(session.user.role), "Access Denied: Only Admins/Managers can reorder stages.");
+
+  // Verify pipeline ownership
+  const pipe = await db.query.pipelines.findFirst({
+    where: and(eq(pipelines.id, pipelineId), eq(pipelines.orgId, session.user.orgId)),
+  });
+
+  if (!pipe) throw new Error("Pipeline not found");
+
+  for (let i = 0; i < stageIdsInOrder.length; i++) {
+    const stageId = stageIdsInOrder[i];
+    await db
+      .update(stages)
+      .set({ order: i + 1 })
+      .where(and(eq(stages.id, stageId), eq(stages.pipelineId, pipelineId)));
+  }
+
+  await logAuditEntry(session.user.orgId, session.user.id, "reorder", "pipeline_stages", pipelineId, {
+    stageOrder: stageIdsInOrder,
+  });
+
+  revalidatePath("/dashboard/deals");
+  revalidatePath("/dashboard/settings");
+  return getStagesByPipeline(pipelineId);
 }

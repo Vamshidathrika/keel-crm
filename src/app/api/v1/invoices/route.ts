@@ -42,14 +42,26 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { clientId, dealId, amount, dueDate, pdfUrl } = body;
+    const {
+      clientId,
+      dealId,
+      amount,
+      dueDate,
+      pdfUrl,
+      paymentTerms = "due_on_receipt",
+      currency = "INR",
+      subtotal,
+      taxAmount,
+      lineItems = [],
+      status = "unpaid",
+    } = body;
 
     if (amount === undefined || !dueDate) {
       return NextResponse.json({ error: "Fields 'amount' and 'dueDate' are required." }, { status: 400 });
     }
 
     const orgId = authResult.orgId!;
-    const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+    const invoiceNumber = body.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`;
 
     const [newInvoice] = await db
       .insert(invoices)
@@ -59,8 +71,13 @@ export async function POST(req: Request) {
         clientId: clientId || null,
         dealId: dealId || null,
         amount: Number(amount) || 0,
+        subtotal: subtotal !== undefined ? Number(subtotal) : Number(amount) || 0,
+        taxAmount: taxAmount !== undefined ? Number(taxAmount) : 0,
+        currency,
+        paymentTerms: paymentTerms as any,
+        lineItems: Array.isArray(lineItems) ? lineItems : [],
         dueDate,
-        status: "unpaid",
+        status: status as any,
         pdfUrl: pdfUrl || null,
       })
       .returning();
@@ -69,7 +86,7 @@ export async function POST(req: Request) {
       orgId,
       type: "system",
       relatedDealId: dealId || null,
-      body: `Invoice issued: ${newInvoice.invoiceNumber} (₹${newInvoice.amount.toLocaleString()}) - Due: ${dueDate}`,
+      body: `Invoice issued: ${newInvoice.invoiceNumber} (${currency} ${newInvoice.amount.toLocaleString()}) - Due: ${dueDate}`,
       source: "bridge",
     });
 

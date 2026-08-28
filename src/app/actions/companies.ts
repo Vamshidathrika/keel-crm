@@ -31,6 +31,15 @@ export async function createCompany(data: {
   domain?: string;
   industry?: string;
   website?: string;
+  linkedinUrl?: string;
+  gstin?: string;
+  employeeCount?: string;
+  annualRevenue?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
   tags?: string[];
   customFields?: Record<string, string>;
   ownerId?: string;
@@ -50,6 +59,15 @@ export async function createCompany(data: {
       domain: data.domain?.trim() || null,
       industry: data.industry?.trim() || null,
       website: data.website?.trim() || null,
+      linkedinUrl: data.linkedinUrl?.trim() || null,
+      gstin: data.gstin?.trim() || null,
+      employeeCount: data.employeeCount?.trim() || null,
+      annualRevenue: data.annualRevenue || null,
+      address: data.address?.trim() || null,
+      city: data.city?.trim() || null,
+      state: data.state?.trim() || null,
+      country: data.country?.trim() || null,
+      postalCode: data.postalCode?.trim() || null,
       ownerId,
       tags: data.tags || [],
       customFields: data.customFields || {},
@@ -72,6 +90,15 @@ export async function updateCompany(
     domain?: string;
     industry?: string;
     website?: string;
+    linkedinUrl?: string;
+    gstin?: string;
+    employeeCount?: string;
+    annualRevenue?: number;
+    address?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
     tags?: string[];
     customFields?: Record<string, string>;
     ownerId?: string;
@@ -101,11 +128,20 @@ export async function updateCompany(
       domain: data.domain !== undefined ? (data.domain.trim() || null) : company.domain,
       industry: data.industry !== undefined ? (data.industry.trim() || null) : company.industry,
       website: data.website !== undefined ? (data.website.trim() || null) : company.website,
+      linkedinUrl: data.linkedinUrl !== undefined ? (data.linkedinUrl.trim() || null) : company.linkedinUrl,
+      gstin: data.gstin !== undefined ? (data.gstin.trim() || null) : company.gstin,
+      employeeCount: data.employeeCount !== undefined ? (data.employeeCount.trim() || null) : company.employeeCount,
+      annualRevenue: data.annualRevenue !== undefined ? data.annualRevenue : company.annualRevenue,
+      address: data.address !== undefined ? (data.address.trim() || null) : company.address,
+      city: data.city !== undefined ? (data.city.trim() || null) : company.city,
+      state: data.state !== undefined ? (data.state.trim() || null) : company.state,
+      country: data.country !== undefined ? (data.country.trim() || null) : company.country,
+      postalCode: data.postalCode !== undefined ? (data.postalCode.trim() || null) : company.postalCode,
       ownerId: data.ownerId !== undefined && role !== "rep" ? data.ownerId : company.ownerId,
       tags: data.tags !== undefined ? data.tags : company.tags,
       customFields: data.customFields !== undefined ? data.customFields : company.customFields,
     })
-    .where(eq(companies.id, id))
+    .where(and(...conditions))
     .returning();
 
   await logAuditEntry(orgId, userId, "update", "company", id, data as Record<string, unknown>);
@@ -132,7 +168,7 @@ export async function deleteCompany(id: string) {
 
   if (!company) throw new Error("Company not found or access denied.");
 
-  await db.delete(companies).where(eq(companies.id, id));
+  await db.delete(companies).where(and(...conditions));
 
   await logAuditEntry(orgId, userId, "delete", "company", id, {
     companyId: id,

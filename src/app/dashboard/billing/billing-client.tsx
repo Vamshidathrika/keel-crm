@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { PRICING_PLANS, PlanKey, PlanDefinition } from "@/lib/billing";
+import { PRICING_PLANS, PlanKey, PlanDefinition } from "@/lib/billing-plans";
 import { startPlanCheckout } from "@/app/actions/billing";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+import { FiscalLedgerTab } from "@/components/billing/fiscal-ledger-tab";
+
 interface BillingClientProps {
   initialBillingData: {
     subscription: any;
@@ -29,6 +31,7 @@ interface BillingClientProps {
 }
 
 export default function BillingClient({ initialBillingData }: BillingClientProps) {
+  const [mainTab, setMainTab] = useState<"workspace" | "fiscal_engine">("workspace");
   const [isAnnual, setIsAnnual] = useState(true);
   const [currentPlan, setCurrentPlan] = useState<PlanKey>(
     (initialBillingData.subscription?.plan as PlanKey) || "starter"
@@ -59,48 +62,78 @@ export default function BillingClient({ initialBillingData }: BillingClientProps
 
   return (
     <div className="space-y-8 pb-16">
-      {/* Header Banner */}
+      {/* Top Header with Navigation Tabs */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">SaaS Subscription & Billing</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Billing &amp; Revenue Operations</h1>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <CheckCircle2 className="w-3.5 h-3.5" />
               {(initialBillingData?.subscription?.status || "active").toUpperCase()}
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your workspace subscription tier, team seat quotas, and payment methods.
+            Institutional subscription monetization, consumption rating, automated dunning recovery, and statutory ledger operations.
           </p>
         </div>
 
-        {/* Annual / Monthly Toggle */}
-        <div className="flex items-center gap-3 bg-muted/60 p-1.5 rounded-xl border border-border self-start md:self-auto">
+        {/* Main Tab Navigation */}
+        <div className="flex items-center gap-2 bg-muted/60 p-1.5 rounded-xl border border-border self-start md:self-auto">
           <button
-            onClick={() => setIsAnnual(false)}
-            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              !isAnnual
-                ? "bg-background text-foreground shadow-xs font-semibold"
+            onClick={() => setMainTab("workspace")}
+            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              mainTab === "workspace"
+                ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Monthly
+            <Building className="w-3.5 h-3.5" /> Workspace Subscription
           </button>
           <button
-            onClick={() => setIsAnnual(true)}
-            className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              isAnnual
-                ? "bg-background text-foreground shadow-xs font-semibold"
+            onClick={() => setMainTab("fiscal_engine")}
+            className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              mainTab === "fiscal_engine"
+                ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <span>Annual</span>
-            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500 text-white leading-none">
-              SAVE 20%
-            </span>
+            <Zap className="w-3.5 h-3.5" /> Keel LedgerOS™
           </button>
         </div>
       </div>
+
+      {mainTab === "fiscal_engine" ? (
+        <FiscalLedgerTab />
+      ) : (
+        <>
+          {/* Workspace Plan Controls */}
+          <div className="flex justify-end">
+            <div className="flex items-center gap-3 bg-muted/60 p-1.5 rounded-xl border border-border">
+              <button
+                onClick={() => setIsAnnual(false)}
+                className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                  !isAnnual
+                    ? "bg-background text-foreground shadow-xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setIsAnnual(true)}
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                  isAnnual
+                    ? "bg-background text-foreground shadow-xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span>Annual</span>
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500 text-white leading-none">
+                  SAVE 20%
+                </span>
+              </button>
+            </div>
+          </div>
 
       {/* Current Plan & Quota Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -278,24 +311,26 @@ export default function BillingClient({ initialBillingData }: BillingClientProps
         </div>
       </div>
 
-      {/* Security & Payment Assurance */}
-      <div className="p-6 rounded-2xl border border-border bg-muted/30 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-6 h-6 text-primary" />
+        {/* Security & Payment Assurance */}
+        <div className="p-6 rounded-2xl border border-border bg-muted/30 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm">Enterprise Data Guarantee</h4>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                All plans include isolated organization partitions, GDPR data export rights, and SHA-256 encrypted API keys.
+              </p>
+            </div>
           </div>
-          <div>
-            <h4 className="font-semibold text-sm">Enterprise Data Guarantee</h4>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              All plans include isolated organization partitions, GDPR data export rights, and SHA-256 encrypted API keys.
-            </p>
+          <div className="flex items-center gap-3 shrink-0">
+            <CreditCard className="w-5 h-5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground font-medium">Processed securely via Stripe & UPI</span>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <CreditCard className="w-5 h-5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground font-medium">Processed securely via Stripe & UPI</span>
-        </div>
-      </div>
-    </div>
+      </>
+    )}
+  </div>
   );
 }

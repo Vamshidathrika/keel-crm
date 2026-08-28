@@ -12,7 +12,7 @@ export async function getProjects() {
 
   return db.query.projects.findMany({
     where: eq(projects.orgId, session.user.orgId),
-    with: { client: true, deal: true },
+    with: { client: true, deal: true, deliverables: true, projectTasks: true },
     orderBy: [desc(projects.createdAt)],
   });
 }
@@ -65,6 +65,7 @@ export async function createProject(data: {
   });
 
   revalidatePath("/dashboard/projects");
+  revalidatePath(`/portal/${client.portalToken}`);
   return proj;
 }
 
@@ -80,4 +81,45 @@ export async function updateProjectStatus(id: string, status: "planning" | "acti
 
   revalidatePath("/dashboard/projects");
   return updated;
+}
+
+export async function addDeliverable(data: {
+  projectId: string;
+  title: string;
+  description?: string;
+}) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const { orgId } = session.user;
+  const project = await db.query.projects.findFirst({
+    where: and(eq(projects.id, data.projectId), eq(projects.orgId, orgId)),
+    with: { client: true },
+  });
+
+  if (!project) throw new Error("Project not found");
+
+  const [deliv] = await db
+    .insert(deliverables)
+    .values({
+      projectId: data.projectId,
+      title: data.title.trim(),
+      description: data.description || null,
+      status: "pending_review",
+    })
+    .returning();
+
+  await db.insert(activities).values({
+    orgId,
+    type: "system",
+    body: `Added deliverable "${deliv.title}" to project "${project.name}" for client sign-off.`,
+    source: "manual",
+  });
+
+  if (project.client?.portalToken) {
+    revalidatePath(`/portal/${project.client.portalToken}`);
+  }
+  revalidatePath("/dashboard/projects");
+  revalidatePath("/dashboard/business-os");
+  return deliv;
 }

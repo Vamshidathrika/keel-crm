@@ -44,7 +44,23 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, domain, industry, website, tags = [], customFields = {} } = body;
+    const {
+      name,
+      domain,
+      industry,
+      website,
+      linkedinUrl,
+      gstin,
+      employeeCount,
+      annualRevenue,
+      address,
+      city,
+      state,
+      country,
+      postalCode,
+      tags = [],
+      customFields = {},
+    } = body;
 
     if (!name || typeof name !== "string") {
       return NextResponse.json({ error: "Field 'name' is required." }, { status: 400 });
@@ -60,6 +76,15 @@ export async function POST(req: Request) {
         domain: domain?.trim() || null,
         industry: industry?.trim() || null,
         website: website?.trim() || null,
+        linkedinUrl: linkedinUrl?.trim() || null,
+        gstin: gstin?.trim() || null,
+        employeeCount: employeeCount?.trim() || null,
+        annualRevenue: annualRevenue || null,
+        address: address?.trim() || null,
+        city: city?.trim() || null,
+        state: state?.trim() || null,
+        country: country?.trim() || null,
+        postalCode: postalCode?.trim() || null,
         tags,
         customFields,
       })

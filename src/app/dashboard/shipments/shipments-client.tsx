@@ -71,9 +71,9 @@ export default function ShipmentsClient({ user, initialShipments = [] }: Shipmen
 
   const filtered = shipments.filter(
     (s) =>
-      s.dealName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.carrier.toLowerCase().includes(searchTerm.toLowerCase())
+      (s.dealName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.id || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.carrier || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

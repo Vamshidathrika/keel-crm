@@ -38,7 +38,18 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { clientName, serviceType, dateTime, contactId, status = "Scheduled", notes } = body;
+    const {
+      clientName,
+      serviceType,
+      dateTime,
+      contactId,
+      status = "Scheduled",
+      durationMinutes = 30,
+      meetingUrl,
+      location,
+      timezone = "Asia/Kolkata",
+      notes,
+    } = body;
 
     if (!clientName || !serviceType || !dateTime) {
       return NextResponse.json({ error: "Fields 'clientName', 'serviceType', and 'dateTime' are required." }, { status: 400 });
@@ -53,6 +64,10 @@ export async function POST(req: Request) {
         clientName: clientName.trim(),
         serviceType: serviceType.trim(),
         dateTime,
+        durationMinutes: Number(durationMinutes) || 30,
+        meetingUrl: meetingUrl?.trim() || null,
+        location: location?.trim() || null,
+        timezone: timezone?.trim() || "Asia/Kolkata",
         contactId: contactId || null,
         status,
         notes: notes || null,

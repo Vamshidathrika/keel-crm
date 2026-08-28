@@ -9,6 +9,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { triggerWorkflows } from "@/app/actions/automations";
 import { runDealDoctorAgent } from "@/lib/agents/deal-doctor";
+import { dispatchWebhookEvent } from "@/lib/webhooks-dispatcher";
 
 export async function getDeals(pipelineId?: string) {
   const session = await auth();
@@ -46,6 +47,7 @@ export async function createDeal(data: {
   expectedCloseDate?: string;
   probability?: number;
   ownerId?: string;
+  customFields?: Record<string, any>;
 }) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
@@ -76,6 +78,7 @@ export async function createDeal(data: {
       probability,
       healthFlags: [],
       source: "manual",
+      customFields: data.customFields || {},
     })
     .returning();
 
@@ -104,6 +107,16 @@ export async function createDeal(data: {
     console.error("Deal Doctor trigger error:", err)
   );
 
+  // Outbound Webhook Event Dispatch
+  dispatchWebhookEvent(orgId, "deal.created", {
+    dealId: deal.id,
+    title: deal.title,
+    value: deal.value,
+    stageId: deal.stageId,
+    contactId: deal.contactId,
+    companyId: deal.companyId,
+  }).catch((err) => console.error("Webhook dispatch error:", err));
+
   revalidatePath("/dashboard/deals");
   return deal;
 }
@@ -122,6 +135,7 @@ export async function updateDeal(
     healthFlags?: string[];
     lostReason?: string;
     lostReasonNotes?: string;
+    customFields?: Record<string, any>;
   }
 ) {
   const session = await auth();
@@ -155,6 +169,7 @@ export async function updateDeal(
   if (data.healthFlags !== undefined) updateFields.healthFlags = data.healthFlags;
   if (data.lostReason !== undefined) updateFields.lostReason = data.lostReason;
   if (data.lostReasonNotes !== undefined) updateFields.lostReasonNotes = data.lostReasonNotes;
+  if (data.customFields !== undefined) updateFields.customFields = { ...(deal.customFields as any || {}), ...data.customFields };
 
   // Handle stage change mechanics
   if (data.stageId !== undefined && data.stageId !== deal.stageId) {
@@ -217,7 +232,7 @@ export async function updateDeal(
   const [updated] = await db
     .update(deals)
     .set(updateFields)
-    .where(eq(deals.id, id))
+    .where(and(...conditions))
     .returning();
 
   await logAuditEntry(orgId, userId, "update", "deal", id, data as Record<string, unknown>);
@@ -259,7 +274,7 @@ export async function deleteDeal(id: string) {
 
   if (!deal) throw new Error("Deal not found or access denied.");
 
-  await db.delete(deals).where(eq(deals.id, id));
+  await db.delete(deals).where(and(...conditions));
 
   await logAuditEntry(orgId, userId, "delete", "deal", id, {
     dealId: id,

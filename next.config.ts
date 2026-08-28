@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const securityHeaders = [
   {
@@ -34,7 +35,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: process.env.DOCKER_BUILD ? "standalone" : undefined,
   turbopack: {
-    root: __dirname,
+    root: path.resolve(__dirname),
   },
   experimental: {
     optimizePackageImports: [

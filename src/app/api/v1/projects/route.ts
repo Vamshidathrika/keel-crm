@@ -40,7 +40,16 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, clientId, dealId, status = "active", budget = 0 } = body;
+    const {
+      name,
+      clientId,
+      dealId,
+      status = "active",
+      budget = 0,
+      progressPercent = 0,
+      startDate,
+      targetDate,
+    } = body;
 
     if (!name || typeof name !== "string") {
       return NextResponse.json({ error: "Field 'name' is required." }, { status: 400 });
@@ -56,6 +65,9 @@ export async function POST(req: Request) {
         clientId: clientId || null,
         dealId: dealId || null,
         status: ["planning", "active", "completed", "on_hold"].includes(status) ? status : "active",
+        progressPercent: Number(progressPercent) || 0,
+        startDate: startDate || null,
+        targetDate: targetDate || null,
         budget: Number(budget) || 0,
       })
       .returning();

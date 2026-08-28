@@ -37,8 +37,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createDeal, updateDeal, deleteDeal, getDeals } from "@/app/actions/deals";
 import { createPipeline } from "@/app/actions/pipelines";
 import { createActivity } from "@/app/actions/activities";
-import ActivityTimeline from "@/components/activity-timeline";
+import { getCustomFieldDefinitions } from "@/app/actions/custom-fields";
+import { DynamicFieldRenderer } from "@/components/custom-fields/dynamic-field-renderer";
+import { CustomFieldDefinition } from "@/db/schema";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
+
+const ActivityTimeline = dynamic(() => import("@/components/activity-timeline"), { ssr: false });
 
 type Deal = {
   id: string;
@@ -224,15 +229,31 @@ export default function DealsClient({
 
   // New Deal Modal states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [createForm, setCreateForm] = useState({
+  const [dealCustomFields, setDealCustomFields] = useState<CustomFieldDefinition[]>([]);
+  const [createForm, setCreateForm] = useState<{
+    title: string;
+    value: string;
+    stageId: string;
+    contactId: string;
+    companyId: string;
+    expectedCloseDate: string;
+    customFields: Record<string, any>;
+  }>({
     title: "",
     value: "",
     stageId: "",
     contactId: "none",
     companyId: "none",
     expectedCloseDate: "",
+    customFields: {},
   });
   const [createLoading, setCreateLoading] = useState(false);
+
+  useEffect(() => {
+    getCustomFieldDefinitions("deal")
+      .then((defs) => setDealCustomFields(defs))
+      .catch(() => {});
+  }, [showCreateDialog]);
 
   // Calendar navigation states
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -324,6 +345,7 @@ export default function DealsClient({
         contactId: createForm.contactId === "none" ? undefined : createForm.contactId,
         companyId: createForm.companyId === "none" ? undefined : createForm.companyId,
         expectedCloseDate: createForm.expectedCloseDate || undefined,
+        customFields: createForm.customFields,
       };
 
       const newDeal = await createDeal(payload);
@@ -349,6 +371,7 @@ export default function DealsClient({
         contactId: "none",
         companyId: "none",
         expectedCloseDate: "",
+        customFields: {},
       });
       toast.success("Deal created successfully");
       setSelectedDeal(dealWithRelations);
@@ -531,10 +554,10 @@ export default function DealsClient({
         <div className="flex items-center gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-              <DollarSign className="w-6 h-6 text-primary" /> Deals
+              <DollarSign className="w-6 h-6 text-primary" /> Opportunities & Pipeline
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Organize pipelines, drag cards, and track forecast revenue.
+              Multi-stage opportunity pipelines, stage-weighted revenue forecasting, deal velocity forensics, and sales governance.
             </p>
           </div>
         </div>
@@ -603,7 +626,7 @@ export default function DealsClient({
           </div>
 
           <Button onClick={() => setShowCreateDialog(true)} className="flex items-center gap-1.5">
-            <Plus className="w-4 h-4" /> Add Deal
+            <Plus className="w-4 h-4" /> Provision Opportunity
           </Button>
         </div>
       </div>
@@ -612,27 +635,27 @@ export default function DealsClient({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           {
-            label: "Pipeline Value",
+            label: "Pipeline Valuation",
             value: `₹${deals.reduce((s, d) => s + d.value, 0).toLocaleString("en-IN")}`,
-            sub: `${deals.length} deals total`,
+            sub: `${deals.length} active opportunities`,
           },
           {
-            label: "Weighted Forecast",
+            label: "Weighted Realization",
             value: `₹${getForecastValue().toLocaleString("en-IN")}`,
-            sub: "Stage weighted estimates",
+            sub: "Stage-weighted probability revenue",
           },
           {
-            label: "Closed Won",
+            label: "Closed Bookings (Won)",
             value: `₹${deals
               .filter((d) => d.stage?.type === "won")
               .reduce((s, d) => s + d.value, 0)
               .toLocaleString("en-IN")}`,
-            sub: "Total won revenue",
+            sub: "Realized contract bookings",
           },
           {
-            label: "Open Opportunities",
+            label: "In-Flight Pipeline",
             value: deals.filter((d) => d.stage?.type === "open").length,
-            sub: "Currently active deals",
+            sub: "Active qualification stages",
           },
         ].map((s) => (
           <Card key={s.label} className="border border-border bg-card">
@@ -707,7 +730,7 @@ export default function DealsClient({
                       {/* Left border indicator using stage color */}
                       <div 
                         className="absolute left-0 top-0 bottom-0 w-[3px]" 
-                        style={{ backgroundColor: stage.color || "#3b82f6" }} 
+                        style={{ backgroundColor: stage.color || "#c96442" }} 
                       />
                       
                       <div className="flex items-start justify-between gap-2">
@@ -883,7 +906,7 @@ export default function DealsClient({
                       <div
                         key={d.id}
                         onClick={() => setSelectedDeal(d)}
-                        style={{ borderLeftColor: d.stage?.color || "#2F5DFF" }}
+                        style={{ borderLeftColor: d.stage?.color || "#c96442" }}
                         className="px-1 py-0.5 border-l-2 bg-card rounded text-[9px] text-foreground font-medium truncate cursor-pointer shadow-sm hover:border-l-primary"
                         title={d.title}
                       >
@@ -1117,6 +1140,18 @@ export default function DealsClient({
               </Select>
             </div>
 
+            {/* Dynamic Custom Fields on Deals */}
+            <DynamicFieldRenderer
+              fields={dealCustomFields}
+              values={createForm.customFields}
+              onChange={(key, val) =>
+                setCreateForm((prev) => ({
+                  ...prev,
+                  customFields: { ...prev.customFields, [key]: val },
+                }))
+              }
+            />
+
             <DialogFooter className="pt-2">
               <Button
                 type="button"
@@ -1217,16 +1252,14 @@ export default function DealsClient({
                       onClick={async () => {
                         try {
                           const { createBusinessOsInvoice } = await import("@/app/actions/business-os");
-                          if (selectedDeal.contactId) {
-                            await createBusinessOsInvoice({
-                              dealId: selectedDeal.id,
-                              clientId: selectedDeal.contactId,
-                              amount: selectedDeal.value,
-                            });
-                          }
-                          toast.success(`Invoice created & shared for Deal value: ₹${selectedDeal.value.toLocaleString("en-IN")}`);
-                        } catch (err) {
-                          toast.error("Failed to generate invoice");
+                          const inv = await createBusinessOsInvoice({
+                            dealId: selectedDeal.id,
+                            contactId: selectedDeal.contactId || undefined,
+                            amount: selectedDeal.value,
+                          });
+                          toast.success(`Invoice ${inv.invoiceNumber} created & shared to Client Portal (₹${selectedDeal.value.toLocaleString("en-IN")})`);
+                        } catch (err: any) {
+                          toast.error(err?.message || "Failed to generate invoice");
                         }
                       }}
                       className="variant-outline text-[10px] h-7 px-2.5 flex-1 sm:flex-initial border border-border bg-background hover:bg-muted"

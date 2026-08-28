@@ -318,7 +318,7 @@ export default function GrowthClient({ user, initialData }: GrowthClientProps) {
                     <div className="flex items-center gap-3 text-[10px] text-muted-foreground/75 font-mono">
                       <span>Contract Renewal: {sig.renewalDate || "Rolling Monthly"}</span>
                       <span>•</span>
-                      <span>Last Activity: {new Date(sig.lastTouchpointAt).toLocaleDateString()}</span>
+                      <span suppressHydrationWarning>Last Activity: {new Date(sig.lastTouchpointAt).toLocaleDateString()}</span>
                     </div>
                   </div>
 

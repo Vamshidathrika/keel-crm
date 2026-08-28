@@ -76,9 +76,9 @@ export default function AppointmentsClient({ user, initialAppointments = [] }: A
 
   const filtered = appointments.filter(
     (a) =>
-      a.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.provider.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.id.toLowerCase().includes(searchTerm.toLowerCase())
+      (a.patientName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (a.provider || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (a.id || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

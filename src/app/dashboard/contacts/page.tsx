@@ -19,10 +19,12 @@ export default async function ContactsPage() {
   ]);
 
   return (
-    <ContactsClient
-      initialContacts={contactsData}
-      companies={companiesData}
-      currentUser={session.user}
-    />
+    <React.Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground">Loading Contacts...</div>}>
+      <ContactsClient
+        initialContacts={contactsData}
+        companies={companiesData}
+        currentUser={session.user}
+      />
+    </React.Suspense>
   );
 }

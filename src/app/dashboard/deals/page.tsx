@@ -28,13 +28,15 @@ export default async function DealsPage() {
   const dealsData = defaultPipeline ? await getDeals(defaultPipeline.id).catch(() => []) : [];
 
   return (
-    <DealsClient
-      initialDeals={dealsData}
-      pipelines={pipelinesData}
-      contacts={contactsData}
-      companies={companiesData}
-      currentUser={session.user}
-      businessType={orgDetails?.businessType || "b2b_saas"}
-    />
+    <React.Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground">Loading Deals & Pipeline...</div>}>
+      <DealsClient
+        initialDeals={dealsData}
+        pipelines={pipelinesData}
+        contacts={contactsData}
+        companies={companiesData}
+        currentUser={session.user}
+        businessType={orgDetails?.businessType || "b2b_saas"}
+      />
+    </React.Suspense>
   );
 }

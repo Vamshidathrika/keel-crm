@@ -42,7 +42,21 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { title, clientId, dealId, total, amount, items = [], pdfUrl } = body;
+    const {
+      title,
+      clientId,
+      dealId,
+      total,
+      amount,
+      subtotal,
+      discountAmount = 0,
+      taxPercent = 18,
+      currency = "INR",
+      expiresAt,
+      items = [],
+      status = "draft",
+      pdfUrl,
+    } = body;
 
     const finalTotal = total !== undefined ? Number(total) : (amount !== undefined ? Number(amount) : 0);
 
@@ -59,9 +73,14 @@ export async function POST(req: Request) {
         title: title.trim(),
         clientId: clientId || null,
         dealId: dealId || null,
+        subtotal: subtotal !== undefined ? Number(subtotal) : finalTotal,
+        discountAmount: Number(discountAmount) || 0,
+        taxPercent: Number(taxPercent) || 18,
         total: finalTotal,
+        currency,
         items,
-        status: "draft",
+        status: status as any,
+        expiresAt: expiresAt || null,
         pdfUrl: pdfUrl || null,
       })
       .returning();
@@ -70,7 +89,7 @@ export async function POST(req: Request) {
       orgId,
       type: "system",
       relatedDealId: dealId || null,
-      body: `Quotation generated: "${newQuote.title}" (Total: ₹${newQuote.total.toLocaleString()})`,
+      body: `Quotation generated: "${newQuote.title}" (Total: ${currency} ${newQuote.total.toLocaleString()})`,
       source: "bridge",
     });
 

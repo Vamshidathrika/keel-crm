@@ -115,7 +115,7 @@ export async function toggleTaskStatus(id: string, isDone: boolean) {
       isDone,
       completedAt,
     })
-    .where(eq(tasks.id, id))
+    .where(and(...conditions))
     .returning();
 
   // Log activity timeline update
@@ -158,7 +158,7 @@ export async function deleteTask(id: string) {
 
   if (!task) throw new Error("Task not found or access denied.");
 
-  await db.delete(tasks).where(eq(tasks.id, id));
+  await db.delete(tasks).where(and(...conditions));
 
   await logAuditEntry(orgId, userId, "delete", "task", id, {
     taskId: id,

@@ -12,6 +12,7 @@ import {
   RotateCw,
   Settings2,
   ShieldCheck,
+  ShieldAlert,
   Zap,
   TrendingUp,
   Activity,
@@ -27,11 +28,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   approveAgentAction,
   rejectAgentAction,
   triggerManualSweep,
   updateAgentConfig,
+  runWaterfallEnrichmentTest,
 } from "@/app/actions/agents";
 import { toast } from "sonner";
 
@@ -40,6 +44,7 @@ interface AgentHubClientProps {
   initialQueue: any[];
   initialRuns: any[];
   initialConfigs: any[];
+  initialBattlecards?: any[];
 }
 
 export default function AgentHubClient({
@@ -47,13 +52,42 @@ export default function AgentHubClient({
   initialQueue,
   initialRuns,
   initialConfigs,
+  initialBattlecards = [],
 }: AgentHubClientProps) {
   const [queue, setQueue] = useState(initialQueue);
   const [runs, setRuns] = useState(initialRuns);
   const [configs, setConfigs] = useState(initialConfigs);
+  const [battlecards, setBattlecards] = useState(initialBattlecards);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isSweeping, setIsSweeping] = useState(false);
+
+  // Waterfall Enrichment Sandbox State
+  const [waterfallDomain, setWaterfallDomain] = useState("");
+  const [waterfallCompany, setWaterfallCompany] = useState("");
+  const [waterfallEmail, setWaterfallEmail] = useState("");
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [waterfallResult, setWaterfallResult] = useState<any>(null);
+
+  const handleRunWaterfall = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!waterfallDomain && !waterfallCompany && !waterfallEmail) return;
+
+    setIsEnriching(true);
+    try {
+      const res = await runWaterfallEnrichmentTest({
+        domain: waterfallDomain.trim(),
+        companyName: waterfallCompany.trim(),
+        contactEmail: waterfallEmail.trim(),
+      });
+      setWaterfallResult(res);
+      toast.success("Waterfall enrichment completed successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to run waterfall enrichment");
+    } finally {
+      setIsEnriching(false);
+    }
+  };
 
   const pendingCount = queue.length;
   const criticalCount = queue.filter((q) => q.severity === "critical").length;
@@ -229,7 +263,7 @@ export default function AgentHubClient({
 
       {/* Main Tabs */}
       <Tabs defaultValue="queue" className="space-y-4">
-        <TabsList className="bg-muted/60 p-1">
+        <TabsList className="bg-muted/60 p-1 flex flex-wrap">
           <TabsTrigger value="queue" className="gap-2 text-xs font-medium relative">
             Action Approval Queue
             {pendingCount > 0 && (
@@ -240,6 +274,14 @@ export default function AgentHubClient({
           </TabsTrigger>
           <TabsTrigger value="agents" className="gap-2 text-xs font-medium">
             Agent Swarm Squad
+          </TabsTrigger>
+          <TabsTrigger value="waterfall" className="gap-2 text-xs font-medium">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            Waterfall Enrichment (Clay)
+          </TabsTrigger>
+          <TabsTrigger value="battlecards" className="gap-2 text-xs font-medium">
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-500" />
+            Objection Battlecards (Gong)
           </TabsTrigger>
           <TabsTrigger value="runs" className="gap-2 text-xs font-medium">
             Live Reasoning & Audit Stream
@@ -375,7 +417,220 @@ export default function AgentHubClient({
           </div>
         </TabsContent>
 
-        {/* Tab 3: Live Reasoning & Audit Stream */}
+        {/* Tab 3: Clay-Style Waterfall Enrichment Sandbox */}
+        <TabsContent value="waterfall" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Input Form */}
+            <Card className="p-6 border shadow-xs space-y-4">
+              <div>
+                <h3 className="text-base font-semibold flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  Waterfall Lead & Account Enrichment
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cascades through 3 enrichment tiers: DNS heuristics ➔ Technographics ➔ Gemini 2.5 Dossier.
+                </p>
+              </div>
+
+              <form onSubmit={handleRunWaterfall} className="space-y-3 pt-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Company Domain</Label>
+                  <Input
+                    placeholder="e.g. stripe.com or maersk.com"
+                    value={waterfallDomain}
+                    onChange={(e) => setWaterfallDomain(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Company Name (Optional)</Label>
+                  <Input
+                    placeholder="e.g. Stripe Inc"
+                    value={waterfallCompany}
+                    onChange={(e) => setWaterfallCompany(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Contact Email (Optional)</Label>
+                  <Input
+                    placeholder="e.g. alex@company.com"
+                    value={waterfallEmail}
+                    onChange={(e) => setWaterfallEmail(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isEnriching || (!waterfallDomain && !waterfallCompany && !waterfallEmail)}
+                  className="w-full text-xs gap-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-xs mt-2"
+                >
+                  {isEnriching ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                      Cascading Waterfall Tiers...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3.5 h-3.5" />
+                      Run Waterfall Enrichment
+                    </>
+                  )}
+                </Button>
+              </form>
+            </Card>
+
+            {/* Results Display */}
+            <div className="lg:col-span-2 space-y-4">
+              {waterfallResult ? (
+                <Card className="p-6 border shadow-xs space-y-5 bg-gradient-to-br from-card to-muted/20">
+                  <div className="flex items-center justify-between pb-3 border-b">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-base font-bold text-foreground">Enrichment Dossier</h4>
+                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px]">
+                          Tier {waterfallResult.tierReached} Reached
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Confidence: {(waterfallResult.provenance.confidence * 100).toFixed(0)}% • Sources: {waterfallResult.provenance.sources.join(" ➔ ")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-lg bg-background border">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">ICP Fit</span>
+                      <p className="text-xs font-bold text-primary mt-1">{waterfallResult.data.icpFit}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-background border">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Domain Health</span>
+                      <p className="text-xs font-bold text-foreground mt-1 capitalize">{waterfallResult.data.domainHealth}</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-background border">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Corporate Email</span>
+                      <p className="text-xs font-bold text-foreground mt-1">
+                        {waterfallResult.data.isCorporateEmail ? "Verified Corporate" : "Free / Public"}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-background border">
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">Headcount Estimate</span>
+                      <p className="text-xs font-bold text-foreground mt-1">{waterfallResult.data.employeeEstimate}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <div>
+                      <span className="text-xs font-bold text-foreground uppercase tracking-wider">Executive Summary</span>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed bg-background p-3 rounded-lg border">
+                        {waterfallResult.data.summary}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="text-xs font-bold text-foreground uppercase tracking-wider">Tailored Sales Hook</span>
+                      <p className="text-xs text-primary font-medium mt-1 bg-primary/5 p-3 rounded-lg border border-primary/20">
+                        🎯 {waterfallResult.data.suggestedHook}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="text-xs font-bold text-foreground uppercase tracking-wider">Detected Technographic Stack</span>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {waterfallResult.data.techStack.map((tech: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-muted text-foreground border">
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <Card className="p-12 text-center border-dashed flex flex-col items-center justify-center">
+                  <Sparkles className="w-8 h-8 text-amber-500/50 mb-3" />
+                  <h4 className="text-sm font-semibold">Live Waterfall Sandbox Ready</h4>
+                  <p className="text-xs text-muted-foreground max-w-sm mt-1">
+                    Enter any company domain or email to simulate Clay-style multi-tier waterfall intelligence live.
+                  </p>
+                </Card>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab 4: Gong-Style Competitor Objection Battlecards */}
+        <TabsContent value="battlecards" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold tracking-tight">Competitor Battlecards & Objection Rebuttal</h3>
+              <p className="text-xs text-muted-foreground">
+                Battlecards injected automatically by Deal Doctor AI when competitor mentions are detected in deals or call transcripts.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+            {battlecards.map((card) => (
+              <Card key={card.id} className="p-6 border shadow-xs space-y-4 hover:shadow-md transition-all">
+                <div className="flex items-start justify-between pb-3 border-b">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary font-mono">
+                      COMPETITOR OVERRIDE
+                    </span>
+                    <h4 className="text-lg font-bold text-foreground">{card.competitorName}</h4>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-semibold">
+                    Live Deal Defense
+                  </Badge>
+                </div>
+
+                {card.pricingComparison && (
+                  <div className="p-3 rounded-lg bg-muted/40 border text-xs">
+                    <span className="font-semibold text-foreground">Pricing Trap: </span>
+                    <span className="text-muted-foreground">{card.pricingComparison}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                    <h5 className="font-bold text-emerald-600 dark:text-emerald-400 text-xs mb-1.5">Our Strategic Strengths</h5>
+                    <ul className="space-y-1 list-disc list-inside text-muted-foreground text-[11px]">
+                      {(card.ourStrengths || []).map((s: string, i: number) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-rose-500/5 border border-rose-500/20">
+                    <h5 className="font-bold text-rose-600 dark:text-rose-400 text-xs mb-1.5">Their Critical Weaknesses</h5>
+                    <ul className="space-y-1 list-disc list-inside text-muted-foreground text-[11px]">
+                      {(card.theirWeaknesses || []).map((w: string, i: number) => (
+                        <li key={i}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <h5 className="font-bold text-xs text-foreground uppercase tracking-wider">Objection Rebuttal Scripts</h5>
+                  {(card.objectionHandlers || []).map((obj: any, i: number) => (
+                    <div key={i} className="p-3 rounded-lg bg-background border space-y-1">
+                      <p className="text-xs font-semibold text-foreground">Q: &ldquo;{obj.objection}&rdquo;</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        <span className="font-bold text-primary">A: </span>
+                        {obj.response}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* Tab 5: Live Reasoning & Audit Stream */}
         <TabsContent value="runs" className="space-y-3">
           {runs.length === 0 ? (
             <Card className="p-8 text-center text-sm text-muted-foreground">

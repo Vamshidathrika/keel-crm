@@ -43,7 +43,7 @@ export function AgentActionCard({
               Risk: {riskTier.toUpperCase()}
             </span>
           </div>
-          <span className="text-[10px] text-muted-foreground">
+          <span suppressHydrationWarning className="text-[10px] text-muted-foreground">
             {new Date(action.createdAt).toLocaleDateString()}
           </span>
         </div>

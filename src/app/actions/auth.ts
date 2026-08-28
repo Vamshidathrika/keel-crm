@@ -8,10 +8,12 @@ import { createDefaultPipeline } from "@/lib/seed-defaults";
 import { eq } from "drizzle-orm";
 
 function generateSlug(name: string): string {
-  return name
+  const base = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
+  const rand = Math.random().toString(36).slice(2, 6);
+  return base ? `${base}-${rand}` : `org-${rand}`;
 }
 
 export async function registerUser(data: RegisterInput) {

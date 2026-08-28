@@ -5,6 +5,14 @@ import { eq, and, lt } from "drizzle-orm";
 
 export async function POST(req: Request) {
   try {
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret) {
+      const authHeader = req.headers.get("Authorization");
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: "Unauthorized cron execution." }, { status: 401 });
+      }
+    }
+
     const todayStr = new Date().toISOString().slice(0, 10);
 
     // 1. Flip unpaid invoices to overdue

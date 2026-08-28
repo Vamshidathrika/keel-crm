@@ -266,7 +266,7 @@ export default function DashboardClient({
         <div className="space-y-1 relative z-10">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              Welcome back to Keel <Zap className="w-5 h-5 text-ai fill-ai/10 animate-bounce" />
+              Revenue Command Center <Zap className="w-5 h-5 text-ai fill-ai/10 animate-bounce" />
             </h2>
             {activePipeline && (
               <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
@@ -276,8 +276,8 @@ export default function DashboardClient({
           </div>
           <p className="text-xs text-muted-foreground max-w-lg">
             {activePipeline
-              ? `Showing real-time metrics, funnel, and forecasts for the "${activePipeline.name}" pipeline.`
-              : "The AI-native sales copilot keeping every deal on course."}
+              ? `Real-time pipeline velocity, automated deal forensics, weighted revenue forecasting, and executive sales intelligence for "${activePipeline.name}".`
+              : "Autonomous enterprise sales acceleration, deal pipeline governance, and revenue operations."}
           </p>
         </div>
         
@@ -289,30 +289,30 @@ export default function DashboardClient({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Pipeline Value",
+            label: "Pipeline Valuation",
             value: formatCurrency(totalPipeline),
             sub: "Active unclosed opportunities",
             icon: DollarSign,
             color: "text-primary bg-primary/10 border-primary/20",
           },
           {
-            label: "Forecast Target",
+            label: "Weighted Realization",
             value: formatCurrency(dynamicForecastTarget),
-            sub: "Weighted by stage closure",
+            sub: "Stage-weighted probability revenue",
             icon: TrendingUp,
             color: "text-ai bg-ai/10 border-ai/20",
           },
           {
-            label: "Sales Reps",
+            label: "Sales Execution Team",
             value: leaderboardData.length || 3,
-            sub: "Active lead owners",
+            sub: "Active deal owners & reps",
             icon: User,
             color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20",
           },
           {
-            label: "Priority Actions",
+            label: "High-Intent Engagements",
             value: hotLeads.length,
-            sub: "Scored hot lead contacts",
+            sub: "High-probability scored prospects",
             icon: Flame,
             color: "text-destructive bg-destructive/10 border-destructive/20",
           },
@@ -359,14 +359,14 @@ export default function DashboardClient({
                   tickFormatter={(v) => `₹${v / 1000}k`}
                 />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#111726", borderColor: "#1F2937", borderRadius: "6px" }}
-                  labelStyle={{ color: "#9CA3AF", fontSize: "11px", fontFamily: "monospace" }}
-                  itemStyle={{ color: "#F9FAFB", fontSize: "11px" }}
+                  contentStyle={{ backgroundColor: "#2c2c2b", borderColor: "#3e3e38", borderRadius: "8px" }}
+                  labelStyle={{ color: "#b7b5a9", fontSize: "11px", fontFamily: "monospace" }}
+                  itemStyle={{ color: "#faf9f5", fontSize: "11px" }}
                   formatter={(value: any) => [formatCurrency(value), "Value"]}
                 />
-                <Bar dataKey="value" fill="#2F5DFF" radius={[4, 4, 0, 0]} maxBarSize={45}>
+                <Bar dataKey="value" fill="#c96442" radius={[6, 6, 0, 0]} maxBarSize={45}>
                   {activeFunnelData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color || "#2F5DFF"} />
+                    <Cell key={`cell-${index}`} fill={entry.color || "#c96442"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -392,8 +392,8 @@ export default function DashboardClient({
                 <AreaChart data={calculatedForecast} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorForecast" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#E8A33D" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#E8A33D" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#c96442" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#c96442" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="month" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} />
@@ -405,18 +405,18 @@ export default function DashboardClient({
                     tickFormatter={(v) => `₹${v / 1000}k`}
                   />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#111726", borderColor: "#1F2937", borderRadius: "6px" }}
-                    labelStyle={{ color: "#9CA3AF", fontSize: "11px", fontFamily: "monospace" }}
-                    itemStyle={{ color: "#F9FAFB", fontSize: "11px" }}
+                    contentStyle={{ backgroundColor: "#2c2c2b", borderColor: "#3e3e38", borderRadius: "8px" }}
+                    labelStyle={{ color: "#b7b5a9", fontSize: "11px", fontFamily: "monospace" }}
+                    itemStyle={{ color: "#faf9f5", fontSize: "11px" }}
                     formatter={(value: any) => [formatCurrency(value), "Forecast"]}
                   />
                   <Area
                     type="monotone"
                     dataKey="value"
-                    stroke="#E8A33D"
+                    stroke="#c96442"
                     fillOpacity={1}
                     fill="url(#colorForecast)"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -773,7 +773,7 @@ export default function DashboardClient({
                 <p className="text-muted-foreground truncate">{act.body}</p>
                 <div className="flex justify-between items-center text-[9px] text-muted-foreground/75 font-mono mt-1.5">
                   <span>By: {act.actorUserId?.name || "System"}</span>
-                  <span>{new Date(act.occurredAt).toLocaleDateString()}</span>
+                  <span suppressHydrationWarning>{new Date(act.occurredAt).toLocaleDateString()}</span>
                 </div>
               </div>
             ))}
