@@ -12,7 +12,9 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts",
-    "db:clean": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/wipe-dummy-data.ts"
+    "db:clean": "node --env-file=.env.local node_modules/tsx/dist/cli.mjs scripts/wipe-dummy-data.ts",
+    "env:encrypt": "node scripts/encrypt-env.mjs",
+    "env:decrypt": "node scripts/decrypt-env.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
